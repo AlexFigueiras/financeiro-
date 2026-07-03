@@ -24,11 +24,8 @@ export const env = {
   port: parseInt(optional('PORT', '3000'), 10),
   syncIntervalMinutes: parseInt(optional('SYNC_INTERVAL_MINUTES', '30'), 10),
 
-  // Tokens de integração são lidos sob demanda (lazy) para que o servidor
-  // suba mesmo sem eles — os módulos que dependem deles falham com erro claro.
-  get mpAccessToken(): string {
-    return required('MP_ACCESS_TOKEN');
-  },
+  // Token lido sob demanda (lazy) para que o servidor suba mesmo sem ele —
+  // o módulo de OCR falha com erro claro se ausente.
   get geminiApiKey(): string {
     return required('GEMINI_API_KEY');
   },

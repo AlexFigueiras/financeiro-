@@ -1,9 +1,8 @@
-/** Lista unificada de transações (Mercado Pago + Caixa) com detalhe de cupom. */
+/** Lista de transações da Caixa com detalhe de cupom. */
 import { Router } from 'express';
 import { pool } from '../db/pool';
 import { asyncHandler, AppError } from '../middleware/errorHandler';
-import { sincronizarMercadoPago } from '../services/mercadopago';
-import { reconciliar, reconciliarSeguro } from '../services/reconciliacao';
+import { reconciliar } from '../services/reconciliacao';
 
 export const transacoesRouter = Router();
 
@@ -78,21 +77,6 @@ transacoesRouter.get(
       limite,
       total,
       transacoes: rows.map(({ total_registros: _ignorado, ...t }) => t),
-    });
-  })
-);
-
-/** POST /api/transacoes/sync-mercadopago?dias=90 — importa da API do MP. */
-transacoesRouter.post(
-  '/sync-mercadopago',
-  asyncHandler(async (req, res) => {
-    const dias = Math.min(parseInt(String(req.query.dias ?? '90'), 10) || 90, 365);
-    const resultado = await sincronizarMercadoPago(dias);
-    const matches = await reconciliarSeguro('sync Mercado Pago');
-    res.json({
-      mensagem: 'Sincronização com o Mercado Pago concluída.',
-      ...resultado,
-      reconciliacoesEfetuadas: matches.length,
     });
   })
 );

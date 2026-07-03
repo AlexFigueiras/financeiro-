@@ -7,8 +7,8 @@
  *   3. em empate, vence a transação mais próxima no tempo;
  *   4. vínculo 1:1 garantido por índice único parcial em cupom_id.
  *
- * É disparado: (a) após cada upload de OFX, (b) após cada cupom processado,
- * (c) após cada sync do Mercado Pago e (d) pelo cron periódico.
+ * É disparado: (a) após cada upload de OFX, (b) após cada cupom processado
+ * e (c) pelo cron periódico.
  */
 import { pool } from '../db/pool';
 

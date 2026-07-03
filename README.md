@@ -1,9 +1,9 @@
 # Painel Financeiro — Controle & Reconciliação Bancária Automatizada
 
-Sistema pessoal que centraliza transações do **Mercado Pago** (API oficial) e da
-**Caixa Econômica** (upload de OFX), extrai itens de **cupons fiscais/NFC-e por IA
-(Gemini)** e reconcilia automaticamente cada cupom com a transação bancária
-correspondente — enriquecendo o extrato macro com os sub-itens reais da compra.
+Sistema pessoal que centraliza transações da **Caixa Econômica** (upload de OFX),
+extrai itens de **cupons fiscais/NFC-e por IA (Gemini)** e reconcilia
+automaticamente cada cupom com a transação bancária correspondente —
+enriquecendo o extrato macro com os sub-itens reais da compra.
 
 ## Stack
 
@@ -21,7 +21,7 @@ correspondente — enriquecendo o extrato macro com os sub-itens reais da compra
 npm install
 
 # 2. Configuração
-cp .env.example .env      # preencha DATABASE_URL, MP_ACCESS_TOKEN, GEMINI_API_KEY
+cp .env.example .env      # preencha DATABASE_URL e GEMINI_API_KEY
 
 # 3. Schema do banco (idempotente — pode reexecutar)
 npm run build
@@ -32,9 +32,8 @@ npm start                 # produção (dist/)
 npm run dev               # desenvolvimento com hot-reload
 ```
 
-Dashboard em `http://localhost:3000`. O servidor sobe mesmo sem os tokens de
-Mercado Pago/Gemini — apenas os módulos correspondentes ficam indisponíveis, com
-mensagens de erro explícitas.
+Dashboard em `http://localhost:3000`. O servidor sobe mesmo sem a chave do
+Gemini — apenas o OCR de cupons fica indisponível, com mensagem de erro explícita.
 
 ## Arquitetura
 
@@ -42,14 +41,13 @@ mensagens de erro explícitas.
 db/schema.sql                  Schema completo: tabelas, índices, trigger de saldo,
                                fn_reconciliar() (o motor de match vive no banco)
 src/
-  index.ts                     Bootstrap Express + cron (sync MP + reconciliação)
+  index.ts                     Bootstrap Express + cron de reconciliação
   config/env.ts                Validação de variáveis de ambiente
   db/pool.ts                   Pool pg + helper de transação
   middleware/errorHandler.ts   AppError, asyncHandler, tratamento 23505 etc.
   services/
-    mercadopago.ts             Módulo A — /v1/payments/search paginado
-    ofx.ts                     Módulo B — parser OFX SGML/XML próprio + dedup por hash
-    gemini.ts                  Módulo C — OCR estruturado + validação soma dos itens
+    ofx.ts                     Parser OFX SGML/XML próprio + dedup por hash
+    gemini.ts                  OCR estruturado + validação soma dos itens
     reconciliacao.ts           Invoca fn_reconciliar() após cada ingestão e no cron
   routes/                      contas, transacoes, extrato, cupons, dashboard
   scripts/migrate.ts           Aplica db/schema.sql
@@ -71,8 +69,8 @@ public/                        Dashboard (index.html, styles.css, app.js, Chart.
 
 ### Motor de reconciliação (`fn_reconciliar`)
 
-Roda após cada upload de OFX, cada cupom processado, cada sync do Mercado Pago e
-no cron periódico. Critérios simultâneos:
+Roda após cada upload de OFX, cada cupom processado e no cron periódico.
+Critérios simultâneos:
 
 1. `ABS(valor)` da saída bancária **igual centavo por centavo** ao `valor_total` do cupom;
 2. `data_transacao` dentro de **±48h** da `data_emissao` (janela de compensação);
@@ -87,7 +85,6 @@ no cron periódico. Critérios simultâneos:
 | GET | `/api/contas` | Lista contas e saldos |
 | POST | `/api/contas` | Cria conta (`{nome, tipo}`) |
 | GET | `/api/transacoes?mes=YYYY-MM` | Lista unificada; reconciliadas trazem `itens_cupom` embutidos |
-| POST | `/api/transacoes/sync-mercadopago?dias=90` | Importa da API do Mercado Pago |
 | POST | `/api/transacoes/reconciliar` | Dispara o motor manualmente |
 | POST | `/api/extrato/upload-ofx` | multipart `arquivo` (.ofx) [+ `conta_id`] |
 | POST | `/api/cupons/upload` | multipart `arquivo` (foto/PDF do cupom → Gemini) |
@@ -119,6 +116,6 @@ curl -F "arquivo=@cupom.jpg" http://localhost:3000/api/cupons/upload
 
 ## Cron
 
-A cada `SYNC_INTERVAL_MINUTES` (padrão 30) o servidor sincroniza o Mercado Pago e
-executa a reconciliação. Alternativa server-side: agendar
+A cada `SYNC_INTERVAL_MINUTES` (padrão 30) o servidor executa a reconciliação
+como rede de segurança. Alternativa server-side: agendar
 `SELECT * FROM fn_reconciliar();` via `pg_cron` no Supabase.

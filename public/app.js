@@ -260,7 +260,7 @@
     $('contagem-transacoes').textContent = `${r.total} registro(s)`;
 
     if (r.transacoes.length === 0) {
-      corpo.innerHTML = '<tr><td colspan="5" class="celula-vazia">Nenhuma transação no período. Envie um OFX ou sincronize o Mercado Pago.</td></tr>';
+      corpo.innerHTML = '<tr><td colspan="5" class="celula-vazia">Nenhuma transação no período. Envie um extrato OFX da Caixa.</td></tr>';
       return;
     }
 
@@ -355,21 +355,6 @@
     return partes.length > 0 ? `(${partes.join(', ')})` : '';
   }
 
-  // ---- Sincronização Mercado Pago ---------------------------------------------------
-  async function sincronizarMp() {
-    const btn = $('btn-sync-mp');
-    btn.disabled = true;
-    try {
-      const r = await chamarApi('/api/transacoes/sync-mercadopago', { method: 'POST' });
-      mostrarFeedback(`Mercado Pago: ${r.mensagem} ${resumoUpload(r)}`, 'sucesso');
-      await atualizarTudo();
-    } catch (erro) {
-      mostrarFeedback(`Mercado Pago: ${erro.message}`, 'erro');
-    } finally {
-      btn.disabled = false;
-    }
-  }
-
   // ---- Orquestração --------------------------------------------------------------------
   async function atualizarTudo() {
     const tarefas = [carregarKpis(), carregarFluxoDiario(), carregarCategorias(), carregarTransacoes()];
@@ -384,7 +369,6 @@
     const agora = new Date();
     $('seletor-mes').value = `${agora.getFullYear()}-${String(agora.getMonth() + 1).padStart(2, '0')}`;
     $('seletor-mes').addEventListener('change', atualizarTudo);
-    $('btn-sync-mp').addEventListener('click', sincronizarMp);
     configurarDropzone('dropzone-ofx', 'input-ofx', '/api/extrato/upload-ofx', 'Extrato OFX');
     configurarDropzone('dropzone-cupom', 'input-cupom', '/api/cupons/upload', 'Cupom fiscal');
     // Redesenha os gráficos quando o SO alterna claro/escuro (tokens mudam)
@@ -392,8 +376,8 @@
     if (MODO_DEMO) {
       const aviso = $('feedback');
       aviso.textContent =
-        'Modo demonstração (GitHub Pages): dados fictícios. Uploads, sincronização e ' +
-        'reconciliação exigem o backend rodando — instruções no README do repositório.';
+        'Modo demonstração (GitHub Pages): dados fictícios. Uploads e reconciliação ' +
+        'exigem o backend rodando — instruções no README do repositório.';
       aviso.className = 'feedback';
       aviso.hidden = false;
       clearTimeout(feedbackTimer); // banner permanente no demo

@@ -16,7 +16,7 @@ BEGIN;
 -- ----------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS contas_bancarias (
     id              BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    nome            TEXT        NOT NULL UNIQUE,          -- Ex.: 'Mercado Pago', 'Caixa Econômica'
+    nome            TEXT        NOT NULL UNIQUE,          -- Ex.: 'Caixa Econômica'
     tipo            TEXT        NOT NULL DEFAULT 'corrente'
                                 CHECK (tipo IN ('corrente', 'poupanca', 'pagamento', 'carteira_digital', 'outro')),
     saldo_atual     NUMERIC(14,2) NOT NULL DEFAULT 0,
@@ -41,7 +41,7 @@ CREATE INDEX IF NOT EXISTS idx_cupons_data_emissao ON cupons_fiscais (data_emiss
 CREATE INDEX IF NOT EXISTS idx_cupons_valor_total  ON cupons_fiscais (valor_total);
 
 -- ----------------------------------------------------------------------------
--- 3. TRANSAÇÕES BANCÁRIAS (Mercado Pago via API + Caixa via OFX)
+-- 3. TRANSAÇÕES BANCÁRIAS (Caixa via upload de OFX)
 -- ----------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS transacoes_banco (
     id                  BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
@@ -53,7 +53,7 @@ CREATE TABLE IF NOT EXISTS transacoes_banco (
     status_reconciliado BOOLEAN     NOT NULL DEFAULT FALSE,
     cupom_id            BIGINT      REFERENCES cupons_fiscais(id) ON DELETE SET NULL,  -- vínculo lógico do match
     origem              TEXT        NOT NULL DEFAULT 'ofx'
-                                    CHECK (origem IN ('ofx', 'mercadopago', 'manual')),
+                                    CHECK (origem IN ('ofx', 'manual')),
     criado_em           TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
@@ -155,11 +155,10 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- ----------------------------------------------------------------------------
--- 7. SEED: contas padrão do usuário
+-- 7. SEED: conta padrão do usuário
 -- ----------------------------------------------------------------------------
 INSERT INTO contas_bancarias (nome, tipo)
-VALUES ('Mercado Pago', 'carteira_digital'),
-       ('Caixa Econômica', 'corrente')
+VALUES ('Caixa Econômica', 'corrente')
 ON CONFLICT (nome) DO NOTHING;
 
 COMMIT;

@@ -10,7 +10,7 @@
   const dia = (d) => `${mesAtual}-${String(d).padStart(2, '0')}`;
   const ts = (d, hora) => `${dia(Math.min(d, diasNoMes))}T${hora}:00-03:00`;
 
-  const ITENS_MERCADO = [
+  const ITENS_SUPERMERCADO = [
     { nome_produto: 'ARROZ TIPO1 5KG', quantidade: 1, preco_unitario: 27.9, valor_total: 27.9, categoria: 'alimentacao' },
     { nome_produto: 'CERVEJA LATA 350ML x12', quantidade: 1, preco_unitario: 54.9, valor_total: 54.9, categoria: 'bebidas' },
     { nome_produto: 'PICANHA BOVINA KG', quantidade: 1.42, preco_unitario: 79.9, valor_total: 113.46, categoria: 'carnes' },
@@ -28,22 +28,22 @@
 
   const TRANSACOES = [
     { id: 1, dia: 1, hora: '09:00', conta_nome: 'Caixa Econômica', descricao_bruta: 'CRED SALARIO EMPRESA XYZ', valor: 4800.0, origem: 'ofx' },
-    { id: 2, dia: 1, hora: '14:22', conta_nome: 'Mercado Pago', descricao_bruta: 'PIX RECEBIDO CLIENTE ABC', valor: 650.0, origem: 'mercadopago' },
+    { id: 2, dia: 1, hora: '14:22', conta_nome: 'Caixa Econômica', descricao_bruta: 'PIX RECEBIDO CLIENTE ABC', valor: 650.0, origem: 'ofx' },
     { id: 3, dia: 1, hora: '19:41', conta_nome: 'Caixa Econômica', descricao_bruta: 'COMPRA SUPERMERCADO GBARBOSA', valor: -287.45, origem: 'ofx',
-      cupom_id: 1, estabelecimento: 'GBARBOSA SUPERMERCADO', itens: ITENS_MERCADO },
-    { id: 4, dia: 2, hora: '08:15', conta_nome: 'Mercado Pago', descricao_bruta: 'PAGAMENTO UBER TRIP', valor: -24.9, origem: 'mercadopago' },
+      cupom_id: 1, estabelecimento: 'GBARBOSA SUPERMERCADO', itens: ITENS_SUPERMERCADO },
+    { id: 4, dia: 2, hora: '08:15', conta_nome: 'Caixa Econômica', descricao_bruta: 'PAGAMENTO UBER TRIP', valor: -24.9, origem: 'ofx' },
     { id: 5, dia: 2, hora: '12:30', conta_nome: 'Caixa Econômica', descricao_bruta: 'DEB AUT ENERGIA COELBA', valor: -198.32, origem: 'ofx' },
-    { id: 6, dia: 2, hora: '20:05', conta_nome: 'Mercado Pago', descricao_bruta: 'COMPRA FARMACIA PAGUE MENOS', valor: -86.2, origem: 'mercadopago',
+    { id: 6, dia: 2, hora: '20:05', conta_nome: 'Caixa Econômica', descricao_bruta: 'COMPRA FARMACIA PAGUE MENOS', valor: -86.2, origem: 'ofx',
       cupom_id: 2, estabelecimento: 'FARMACIA PAGUE MENOS', itens: ITENS_FARMACIA },
     { id: 7, dia: 3, hora: '10:00', conta_nome: 'Caixa Econômica', descricao_bruta: 'PIX ENVIADO ALUGUEL', valor: -1500.0, origem: 'ofx' },
     { id: 8, dia: 3, hora: '09:30', conta_nome: 'Caixa Econômica', descricao_bruta: 'COMPRA PADARIA PAO DOURADO', valor: -45.5, origem: 'ofx' },
     { id: 9, dia: 3, hora: '11:00', conta_nome: 'Caixa Econômica', descricao_bruta: 'PIX RECEBIDO REEMBOLSO', valor: 120.0, origem: 'ofx' },
-    { id: 10, dia: 5, hora: '13:10', conta_nome: 'Mercado Pago', descricao_bruta: 'PAGAMENTO IFOOD PEDIDO 8841', valor: -62.4, origem: 'mercadopago' },
+    { id: 10, dia: 5, hora: '13:10', conta_nome: 'Caixa Econômica', descricao_bruta: 'PAGAMENTO IFOOD PEDIDO 8841', valor: -62.4, origem: 'ofx' },
     { id: 11, dia: 7, hora: '16:45', conta_nome: 'Caixa Econômica', descricao_bruta: 'DEB AUT INTERNET VIVO FIBRA', valor: -119.9, origem: 'ofx' },
-    { id: 12, dia: 9, hora: '10:20', conta_nome: 'Mercado Pago', descricao_bruta: 'VENDA MARKETPLACE PEDIDO 5512', valor: 340.0, origem: 'mercadopago' },
+    { id: 12, dia: 9, hora: '10:20', conta_nome: 'Caixa Econômica', descricao_bruta: 'VENDA MARKETPLACE PEDIDO 5512', valor: 340.0, origem: 'ofx' },
     { id: 13, dia: 12, hora: '19:00', conta_nome: 'Caixa Econômica', descricao_bruta: 'COMPRA POSTO SHELL', valor: -180.0, origem: 'ofx' },
-    { id: 14, dia: 15, hora: '09:00', conta_nome: 'Mercado Pago', descricao_bruta: 'PIX RECEBIDO FREELA DESIGN', valor: 900.0, origem: 'mercadopago' },
-    { id: 15, dia: 18, hora: '21:15', conta_nome: 'Mercado Pago', descricao_bruta: 'ASSINATURA STREAMING', valor: -39.9, origem: 'mercadopago' },
+    { id: 14, dia: 15, hora: '09:00', conta_nome: 'Caixa Econômica', descricao_bruta: 'PIX RECEBIDO FREELA DESIGN', valor: 900.0, origem: 'ofx' },
+    { id: 15, dia: 18, hora: '21:15', conta_nome: 'Caixa Econômica', descricao_bruta: 'ASSINATURA STREAMING', valor: -39.9, origem: 'ofx' },
     { id: 16, dia: 22, hora: '12:00', conta_nome: 'Caixa Econômica', descricao_bruta: 'DEB AUT AGUA EMBASA', valor: -87.6, origem: 'ofx' },
   ].filter((t) => t.dia <= diasNoMes);
 
@@ -116,7 +116,7 @@
 
   window.demoApi = async (url, opcoes) => {
     if (opcoes && opcoes.method && opcoes.method !== 'GET') {
-      throw new Error('Modo demonstração: uploads e sincronização exigem o backend rodando (veja o README).');
+      throw new Error('Modo demonstração: uploads exigem o backend rodando (veja o README).');
     }
     const u = new URL(url, location.origin);
     const mes = u.searchParams.get('mes') ?? mesAtual;
