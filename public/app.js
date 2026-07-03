@@ -6,6 +6,10 @@
   const css = (nome) => getComputedStyle(document.documentElement).getPropertyValue(nome).trim();
   const CORES_CATEGORICAS = () => [1, 2, 3, 4, 5, 6, 7, 8].map((i) => css(`--cat-${i}`));
 
+  // Modo demonstração: ativo no GitHub Pages (sem backend) ou via ?demo=1
+  const MODO_DEMO =
+    location.hostname.endsWith('github.io') || new URLSearchParams(location.search).has('demo');
+
   const fmtBRL = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
   const fmtQtd = new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 3 });
 
@@ -26,6 +30,7 @@
   }
 
   async function chamarApi(url, opcoes) {
+    if (MODO_DEMO && window.demoApi) return window.demoApi(url, opcoes);
     const resposta = await fetch(url, opcoes);
     const corpo = await resposta.json().catch(() => ({}));
     if (!resposta.ok) {
@@ -384,6 +389,15 @@
     configurarDropzone('dropzone-cupom', 'input-cupom', '/api/cupons/upload', 'Cupom fiscal');
     // Redesenha os gráficos quando o SO alterna claro/escuro (tokens mudam)
     window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', atualizarTudo);
+    if (MODO_DEMO) {
+      const aviso = $('feedback');
+      aviso.textContent =
+        'Modo demonstração (GitHub Pages): dados fictícios. Uploads, sincronização e ' +
+        'reconciliação exigem o backend rodando — instruções no README do repositório.';
+      aviso.className = 'feedback';
+      aviso.hidden = false;
+      clearTimeout(feedbackTimer); // banner permanente no demo
+    }
     atualizarTudo();
   }
 
