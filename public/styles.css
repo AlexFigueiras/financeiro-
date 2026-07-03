@@ -1,0 +1,208 @@
+/* ==========================================================================
+   Painel Financeiro — estilo denso (ERP), tokens de cor por papel.
+   Paleta validada (dataviz): categóricas em ordem fixa, ink em tokens de texto.
+   ========================================================================== */
+:root {
+  --plano-pagina:   #f9f9f7;
+  --superficie:     #fcfcfb;
+  --ink-primario:   #0b0b0b;
+  --ink-secundario: #52514e;
+  --ink-mudo:       #898781;
+  --grade:          #e1e0d9;
+  --borda:          rgba(11, 11, 11, 0.10);
+  --ganhos:         #1baf7a;   /* categórica slot 2 (aqua) */
+  --gastos:         #e34948;   /* categórica slot 6 (red)  */
+  --delta-bom:      #006300;
+  --delta-ruim:     #b02a2a;
+  --cat-1: #2a78d6; --cat-2: #1baf7a; --cat-3: #eda100; --cat-4: #008300;
+  --cat-5: #4a3aa7; --cat-6: #e34948; --cat-7: #e87ba4; --cat-8: #eb6834;
+  --foco:           #2a78d6;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --plano-pagina:   #0d0d0d;
+    --superficie:     #1a1a19;
+    --ink-primario:   #ffffff;
+    --ink-secundario: #c3c2b7;
+    --ink-mudo:       #898781;
+    --grade:          #2c2c2a;
+    --borda:          rgba(255, 255, 255, 0.10);
+    --ganhos:         #199e70;
+    --gastos:         #e66767;
+    --delta-bom:      #0ca30c;
+    --delta-ruim:     #e66767;
+    --cat-1: #3987e5; --cat-2: #199e70; --cat-3: #c98500; --cat-4: #008300;
+    --cat-5: #9085e9; --cat-6: #e66767; --cat-7: #d55181; --cat-8: #d95926;
+  }
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  background: var(--plano-pagina);
+  color: var(--ink-primario);
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+.visually-hidden {
+  position: absolute; width: 1px; height: 1px;
+  clip: rect(0 0 0 0); overflow: hidden;
+}
+
+/* ---- Topbar -------------------------------------------------------------- */
+.topbar {
+  background: var(--superficie);
+  border-bottom: 1px solid var(--borda);
+  position: sticky; top: 0; z-index: 10;
+}
+.topbar-inner {
+  max-width: 1280px; margin: 0 auto; padding: 10px 20px;
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  flex-wrap: wrap;
+}
+.topbar h1 { font-size: 17px; font-weight: 700; }
+.topbar-controls { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+
+.mes-input {
+  background: var(--superficie); color: var(--ink-primario);
+  border: 1px solid var(--borda); border-radius: 6px; padding: 6px 10px;
+  font: inherit;
+}
+.btn {
+  font: inherit; border-radius: 6px; padding: 7px 14px; cursor: pointer;
+  border: 1px solid var(--borda);
+}
+.btn-secundario { background: var(--superficie); color: var(--ink-primario); }
+.btn-secundario:hover { border-color: var(--ink-mudo); }
+.btn:focus-visible, .dropzone:focus-visible {
+  outline: 2px solid var(--foco); outline-offset: 2px;
+}
+.btn[disabled] { opacity: 0.55; cursor: wait; }
+
+/* ---- Layout -------------------------------------------------------------- */
+.conteudo { max-width: 1280px; margin: 0 auto; padding: 16px 20px 48px; }
+
+/* ---- KPIs (stat tiles) --------------------------------------------------- */
+.kpi-grid {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 10px; margin-bottom: 12px;
+}
+.kpi-card {
+  background: var(--superficie); border: 1px solid var(--borda);
+  border-radius: 8px; padding: 12px 16px;
+  display: flex; flex-direction: column; gap: 2px;
+}
+.kpi-rotulo { font-size: 12px; color: var(--ink-secundario); font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; }
+.kpi-valor  { font-size: 26px; font-weight: 700; }
+.kpi-sub    { font-size: 12px; color: var(--ink-mudo); }
+.kpi-positivo { color: var(--delta-bom); }
+.kpi-negativo { color: var(--delta-ruim); }
+
+/* ---- Ações rápidas ------------------------------------------------------- */
+.acoes-grid {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 10px; margin-bottom: 12px;
+}
+.dropzone {
+  background: var(--superficie); border: 1.5px dashed var(--ink-mudo);
+  border-radius: 8px; padding: 14px 16px; cursor: pointer;
+  display: flex; flex-direction: column; gap: 2px;
+  transition: border-color 120ms, background 120ms;
+}
+.dropzone span { font-size: 12.5px; color: var(--ink-secundario); }
+.dropzone:hover, .dropzone.arrastando {
+  border-color: var(--foco);
+}
+.dropzone.enviando { opacity: 0.6; pointer-events: none; }
+
+.feedback {
+  border: 1px solid var(--borda); border-left: 4px solid var(--foco);
+  background: var(--superficie); border-radius: 6px;
+  padding: 10px 14px; margin-bottom: 12px; font-size: 13.5px;
+}
+.feedback.erro    { border-left-color: var(--gastos); }
+.feedback.sucesso { border-left-color: var(--ganhos); }
+
+/* ---- Painéis / gráficos --------------------------------------------------- */
+.graficos-grid {
+  display: grid; grid-template-columns: 3fr 2fr; gap: 10px; margin-bottom: 12px;
+}
+@media (max-width: 900px) { .graficos-grid { grid-template-columns: 1fr; } }
+
+.painel {
+  background: var(--superficie); border: 1px solid var(--borda);
+  border-radius: 8px; padding: 14px 16px;
+}
+.painel h2 { font-size: 14px; font-weight: 700; margin-bottom: 10px; }
+.painel-sub { font-size: 12px; font-weight: 400; color: var(--ink-mudo); }
+.painel-cabecalho { display: flex; justify-content: space-between; align-items: baseline; }
+
+.grafico-wrap { position: relative; height: 260px; }
+.donut-linha { display: flex; gap: 16px; align-items: center; flex-wrap: wrap; }
+.grafico-donut { height: 220px; flex: 0 0 220px; }
+.legenda-categorias {
+  list-style: none; flex: 1; min-width: 160px;
+  display: flex; flex-direction: column; gap: 4px; font-size: 13px;
+}
+.legenda-categorias li { display: flex; align-items: center; gap: 8px; }
+.legenda-cor { width: 10px; height: 10px; border-radius: 3px; flex: none; }
+.legenda-nome { color: var(--ink-secundario); flex: 1; text-transform: capitalize; }
+.legenda-valor { font-variant-numeric: tabular-nums; color: var(--ink-primario); }
+
+/* ---- Tabela de transações ------------------------------------------------- */
+.tabela-scroll { overflow-x: auto; }
+.tabela-transacoes { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+.tabela-transacoes th {
+  text-align: left; font-size: 11.5px; text-transform: uppercase; letter-spacing: 0.05em;
+  color: var(--ink-mudo); font-weight: 600; padding: 8px 10px;
+  border-bottom: 1px solid var(--grade); white-space: nowrap;
+}
+.tabela-transacoes td {
+  padding: 7px 10px; border-bottom: 1px solid var(--grade); vertical-align: middle;
+}
+.col-data  { width: 110px; }
+.col-conta { width: 140px; }
+.col-status{ width: 120px; }
+.col-valor { width: 130px; text-align: right; }
+td.col-valor { font-variant-numeric: tabular-nums; text-align: right; font-weight: 600; }
+.valor-entrada { color: var(--delta-bom); }
+.valor-saida   { color: var(--ink-primario); }
+
+.linha-transacao { cursor: default; }
+.linha-transacao.expansivel { cursor: pointer; }
+.linha-transacao.expansivel:hover { background: color-mix(in srgb, var(--foco) 6%, transparent); }
+
+.badge {
+  display: inline-flex; align-items: center; gap: 4px;
+  font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 999px;
+  border: 1px solid var(--borda); color: var(--ink-secundario); white-space: nowrap;
+}
+.badge-detalhado {
+  color: var(--delta-bom);
+  border-color: color-mix(in srgb, var(--delta-bom) 40%, transparent);
+}
+.badge-origem { font-size: 10.5px; }
+
+.celula-vazia { text-align: center; color: var(--ink-mudo); padding: 24px !important; }
+
+/* accordion de itens do cupom */
+.linha-itens td { padding: 0; border-bottom: 1px solid var(--grade); }
+.itens-wrap { padding: 8px 10px 12px 32px; background: color-mix(in srgb, var(--grade) 30%, transparent); }
+.itens-titulo { font-size: 12px; color: var(--ink-mudo); margin-bottom: 6px; }
+.tabela-itens { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+.tabela-itens th {
+  font-size: 10.5px; padding: 4px 8px; border-bottom: 1px solid var(--grade);
+}
+.tabela-itens td { padding: 4px 8px; border-bottom: 1px dashed var(--grade); }
+.tabela-itens td:nth-child(2), .tabela-itens td:nth-child(3), .tabela-itens td:nth-child(4) {
+  text-align: right; font-variant-numeric: tabular-nums;
+}
+.tabela-itens th:nth-child(2), .tabela-itens th:nth-child(3), .tabela-itens th:nth-child(4) {
+  text-align: right;
+}
+.chip-categoria {
+  font-size: 10.5px; padding: 1px 7px; border-radius: 999px;
+  border: 1px solid var(--borda); color: var(--ink-secundario); text-transform: capitalize;
+}

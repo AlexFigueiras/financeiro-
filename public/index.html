@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Painel Financeiro — Controle & Reconciliação</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="topbar-inner">
+      <h1>Painel Financeiro</h1>
+      <div class="topbar-controls">
+        <label for="seletor-mes" class="visually-hidden">Mês de referência</label>
+        <input type="month" id="seletor-mes" class="mes-input">
+        <button id="btn-sync-mp" class="btn btn-secundario" title="Importar transações da API do Mercado Pago">
+          ⟳ Sincronizar Mercado Pago
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <main class="conteudo">
+    <!-- KPI BLOCKS -->
+    <section class="kpi-grid" aria-label="Indicadores do mês">
+      <div class="kpi-card">
+        <span class="kpi-rotulo">Saldo Consolidado</span>
+        <span class="kpi-valor" id="kpi-saldo">—</span>
+        <span class="kpi-sub">todas as contas</span>
+      </div>
+      <div class="kpi-card">
+        <span class="kpi-rotulo">Ganhos no Mês</span>
+        <span class="kpi-valor kpi-positivo" id="kpi-ganhos">—</span>
+        <span class="kpi-sub">entradas</span>
+      </div>
+      <div class="kpi-card">
+        <span class="kpi-rotulo">Gastos no Mês</span>
+        <span class="kpi-valor kpi-negativo" id="kpi-gastos">—</span>
+        <span class="kpi-sub">saídas</span>
+      </div>
+      <div class="kpi-card">
+        <span class="kpi-rotulo">Balanço Líquido</span>
+        <span class="kpi-valor" id="kpi-balanco">—</span>
+        <span class="kpi-sub">ganhos − gastos</span>
+      </div>
+    </section>
+
+    <!-- AÇÕES RÁPIDAS -->
+    <section class="acoes-grid" aria-label="Ações rápidas">
+      <div class="dropzone" id="dropzone-ofx" tabindex="0" role="button"
+           aria-label="Enviar extrato OFX da Caixa">
+        <strong>Extrato OFX (Caixa)</strong>
+        <span>Arraste o arquivo .ofx aqui ou clique para selecionar</span>
+        <input type="file" id="input-ofx" accept=".ofx,.OFX" hidden>
+      </div>
+      <div class="dropzone" id="dropzone-cupom" tabindex="0" role="button"
+           aria-label="Enviar foto ou PDF de cupom fiscal">
+        <strong>Cupom Fiscal (IA)</strong>
+        <span>Arraste a foto/PDF do cupom ou clique — extração automática via Gemini</span>
+        <input type="file" id="input-cupom" accept="image/*,.pdf" hidden>
+      </div>
+    </section>
+
+    <div id="feedback" class="feedback" role="status" hidden></div>
+
+    <!-- GRÁFICOS -->
+    <section class="graficos-grid">
+      <div class="painel">
+        <h2>Ganhos vs Gastos — dia a dia</h2>
+        <div class="grafico-wrap"><canvas id="grafico-fluxo"></canvas></div>
+      </div>
+      <div class="painel">
+        <h2>Gastos por Categoria <span class="painel-sub">itens de cupons reconciliados</span></h2>
+        <div class="donut-linha">
+          <div class="grafico-wrap grafico-donut"><canvas id="grafico-categorias"></canvas></div>
+          <ul id="legenda-categorias" class="legenda-categorias"></ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- TABELA DE TRANSAÇÕES -->
+    <section class="painel">
+      <div class="painel-cabecalho">
+        <h2>Transações Unificadas <span class="painel-sub">Mercado Pago + Caixa</span></h2>
+        <span id="contagem-transacoes" class="painel-sub"></span>
+      </div>
+      <div class="tabela-scroll">
+        <table class="tabela-transacoes" id="tabela-transacoes">
+          <thead>
+            <tr>
+              <th scope="col" class="col-data">Data</th>
+              <th scope="col" class="col-conta">Conta</th>
+              <th scope="col">Descrição</th>
+              <th scope="col" class="col-status">Detalhe</th>
+              <th scope="col" class="col-valor">Valor (R$)</th>
+            </tr>
+          </thead>
+          <tbody id="corpo-transacoes">
+            <tr><td colspan="5" class="celula-vazia">Carregando…</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <script src="vendor/chart.umd.min.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
