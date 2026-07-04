@@ -1,12 +1,10 @@
 {
-  "version": 2,
-  "builds": [
-    { "src": "api/index.ts", "use": "@vercel/node" },
-    { "src": "public/**", "use": "@vercel/static" }
-  ],
+  "functions": {
+    "api/index.ts": { "maxDuration": 60 }
+  },
   "routes": [
+    { "handle": "filesystem" },
     { "src": "/api/(.*)", "dest": "/api/index.ts" },
-    { "src": "/(.+\\.[a-zA-Z0-9]+)$", "dest": "/public/$1" },
     { "src": "/(.*)", "dest": "/public/index.html" }
   ]
 }

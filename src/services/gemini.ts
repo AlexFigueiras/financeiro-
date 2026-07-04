@@ -77,10 +77,19 @@ async function requisitarGeminiJson<T>(
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
-        signal: AbortSignal.timeout(90_000),
+        // 55s: precisa retornar antes do limite de 60s da função no Vercel,
+        // para virar um erro tratado em vez de a função ser morta (504).
+        signal: AbortSignal.timeout(55_000),
       }
     );
   } catch (err) {
+    if ((err as Error).name === 'TimeoutError' || (err as Error).name === 'AbortError') {
+      throw new AppError(
+        'A leitura pela IA demorou demais (arquivo grande ou muitas páginas). ' +
+          'Tente um PDF menor/mais nítido, ou use o arquivo OFX do extrato.',
+        504
+      );
+    }
     throw new AppError(`Falha de rede ao chamar a API do Gemini: ${(err as Error).message}`, 502);
   }
 

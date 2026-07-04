@@ -20,13 +20,14 @@
 
   // ---- Feedback ao usuário --------------------------------------------------
   let feedbackTimer = null;
-  function mostrarFeedback(mensagem, tipo = 'sucesso') {
+  function mostrarFeedback(mensagem, tipo = 'sucesso', persistente = false) {
     const el = $('feedback');
     el.textContent = mensagem;
     el.className = `feedback ${tipo}`;
     el.hidden = false;
     clearTimeout(feedbackTimer);
-    feedbackTimer = setTimeout(() => { el.hidden = true; }, 8000);
+    // Mensagens de "processando" ficam até o resultado chegar (não somem sozinhas).
+    if (!persistente) feedbackTimer = setTimeout(() => { el.hidden = true; }, 8000);
   }
 
   async function chamarApi(url, opcoes) {
@@ -312,8 +313,19 @@
     const input = $(idInput);
 
     const enviar = async (arquivo) => {
-      if (!arquivo) return;
+      if (!arquivo) {
+        mostrarFeedback('Nenhum arquivo reconhecido. Tente clicar na área e selecionar o arquivo.', 'erro');
+        return;
+      }
       zona.classList.add('enviando');
+      const ehPdfOuImagem = arquivo.type === 'application/pdf' || arquivo.type.startsWith('image/');
+      mostrarFeedback(
+        ehPdfOuImagem
+          ? `${nomeAmigavel}: processando "${arquivo.name}" com IA — isso pode levar até 1 minuto…`
+          : `${nomeAmigavel}: enviando "${arquivo.name}"…`,
+        'sucesso',
+        true // persistente até o resultado
+      );
       try {
         const form = new FormData();
         form.append('arquivo', arquivo);
