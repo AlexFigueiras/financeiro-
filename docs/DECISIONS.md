@@ -5,6 +5,14 @@
 
 ---
 
+## [2026-07-04] Tratamento robusto de DATABASE_CA_CERT no pool do banco
+
+- **Status:** accepted
+- **Contexto:** a conexão da Vercel com o Supabase apresentou erro `self-signed certificate in certificate chain` mesmo após configuração da variável `DATABASE_CA_CERT` na Vercel. Isto ocorreu porque variáveis de ambiente multilinhas (como certificados PEM) ou variáveis coladas com aspas podem ser injetadas com quebras de linha Windows (`\r\n`) ou literais (`\\n`), quebrando o parse de TLS/OpenSSL do Node.js em ambiente Linux.
+- **Decisão:** implementar normalização automática do certificado no pool de conexões (`src/infra/db/pool.ts`), removendo aspas externas duplicadas e substituindo quebras de linha inconsistentes por quebras LF padrões (`\n`).
+- **Arquivos impactados:** [pool.ts](file:///c:/Users/Pc%20direito/Projetos%20Antigravity/financeiro-/src/infra/db/pool.ts)
+- **Consequências / Gotchas:** garante conexão resiliente sem depender da formatação de entrada manual de segredos em provedores serverless.
+
 ## [2026-07-04] Bootstrap do Dev OS + migração para SaaS multi-tenant
 
 - **Status:** accepted — ver ADR completo em `docs/adr/0001-bootstrap-devops-multitenant.md`
