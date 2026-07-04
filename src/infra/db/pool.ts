@@ -23,7 +23,17 @@ function configurarSsl(): false | { rejectUnauthorized: boolean; ca?: string } {
     );
     return { rejectUnauthorized: false };
   }
-  return { rejectUnauthorized: true, ca: env.databaseCaCert };
+
+  let ca = env.databaseCaCert;
+  if (ca) {
+    ca = ca.trim();
+    if (ca.startsWith('"') && ca.endsWith('"')) {
+      ca = ca.slice(1, -1);
+    }
+    ca = ca.replace(/\\n/g, '\n').replace(/\r\n/g, '\n').trim();
+  }
+
+  return { rejectUnauthorized: true, ca };
 }
 
 function getPool(): Pool {
