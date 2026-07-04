@@ -39,7 +39,9 @@ export function criarApp() {
    * (a anon key é feita para rodar no navegador — protegida pelas policies de
    * RLS, nunca pela obscuridade). Nenhum segredo de servidor sai por aqui.
    */
-  app.get('/api/config', (_req, res) => {
+  app.get('/api/config', (req, res) => {
+    // eslint-disable-next-line no-console
+    console.info(`[debug-config] AUTH_MODE bruto: "${process.env.AUTH_MODE}", parsed: "${env.authMode}"`);
     if (env.authMode === 'off') {
       res.json({ authMode: 'off' });
       return;
