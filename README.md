@@ -1,9 +1,10 @@
 # Painel Financeiro — Controle & Reconciliação Bancária Automatizada
 
-Sistema pessoal que centraliza transações da **Caixa Econômica** (upload de OFX),
-extrai itens de **cupons fiscais/NFC-e por IA (Gemini)** e reconcilia
-automaticamente cada cupom com a transação bancária correspondente —
-enriquecendo o extrato macro com os sub-itens reais da compra.
+Sistema pessoal que centraliza transações da **Caixa Econômica** (extrato em
+**OFX** ou em **PDF/imagem** lido por IA), extrai itens de **cupons fiscais/NFC-e
+por IA (Gemini)** e reconcilia automaticamente cada cupom com a transação
+bancária correspondente — enriquecendo o extrato macro com os sub-itens reais da
+compra.
 
 ## Stack
 
@@ -119,7 +120,7 @@ Critérios simultâneos:
 | POST | `/api/contas` | Cria conta (`{nome, tipo}`) |
 | GET | `/api/transacoes?mes=YYYY-MM` | Lista unificada; reconciliadas trazem `itens_cupom` embutidos |
 | POST | `/api/transacoes/reconciliar` | Dispara o motor manualmente |
-| POST | `/api/extrato/upload-ofx` | multipart `arquivo` (.ofx) [+ `conta_id`] |
+| POST | `/api/extrato/upload-ofx` | multipart `arquivo` (.ofx **ou** PDF/imagem do extrato) [+ `conta_id`] — OFX via parser local, PDF/imagem via Gemini |
 | POST | `/api/cupons/upload` | multipart `arquivo` (foto/PDF do cupom → Gemini) |
 | GET | `/api/cupons/:id` | Cupom com itens desmembrados |
 | GET | `/api/dashboard/resumo?mes=YYYY-MM` | KPIs: saldo, ganhos, gastos, balanço |

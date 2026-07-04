@@ -106,12 +106,16 @@ export interface ResultadoImportOfx {
   ignoradasDuplicadas: number;
 }
 
-/** Importa as transações do OFX para a conta indicada, ignorando duplicadas. */
-export async function importarOfx(conteudo: string, contaId: number): Promise<ResultadoImportOfx> {
+/**
+ * Insere uma lista de transações na conta indicada, ignorando duplicadas pelo
+ * hash. Reutilizado tanto pelo import de OFX quanto pelo de extrato em PDF.
+ */
+export async function inserirTransacoes(
+  transacoes: TransacaoOfx[],
+  contaId: number
+): Promise<ResultadoImportOfx> {
   const conta = await pool.query('SELECT id FROM contas_bancarias WHERE id = $1', [contaId]);
   if (conta.rowCount === 0) throw new AppError(`Conta bancária ${contaId} não existe.`, 404);
-
-  const transacoes = parseOfx(conteudo);
 
   return withTransaction(async (client) => {
     let importadas = 0;
@@ -128,4 +132,10 @@ export async function importarOfx(conteudo: string, contaId: number): Promise<Re
     }
     return { totalNoArquivo: transacoes.length, importadas, ignoradasDuplicadas };
   });
+}
+
+/** Importa as transações de um arquivo OFX, ignorando duplicadas. */
+export async function importarOfx(conteudo: string, contaId: number): Promise<ResultadoImportOfx> {
+  const transacoes = parseOfx(conteudo);
+  return inserirTransacoes(transacoes, contaId);
 }

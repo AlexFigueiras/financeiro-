@@ -7,6 +7,7 @@
 import { pool, withTransaction } from '../db/pool';
 import { env } from '../config/env';
 import { AppError } from '../middleware/errorHandler';
+import type { TransacaoOfx } from './ofx';
 
 const GEMINI_BASE = 'https://generativelanguage.googleapis.com/v1beta';
 
@@ -39,19 +40,29 @@ interface CupomGemini {
 
 const MIME_PERMITIDOS = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'application/pdf']);
 
-async function chamarGemini(arquivo: Buffer, mimeType: string): Promise<CupomGemini> {
+/**
+ * Núcleo compartilhado: envia arquivo + prompt ao Gemini e devolve o JSON já
+ * parseado (com tratamento explícito de erros de rede/HTTP/JSON). É usado tanto
+ * pela extração de cupons quanto pela de extratos bancários.
+ */
+async function requisitarGeminiJson<T>(
+  arquivo: Buffer,
+  mimeType: string,
+  systemPrompt: string,
+  userText: string
+): Promise<T> {
   if (!MIME_PERMITIDOS.has(mimeType)) {
     throw new AppError(`Tipo de arquivo não suportado: ${mimeType}. Envie JPG, PNG, WEBP, HEIC ou PDF.`, 415);
   }
 
   const body = {
-    system_instruction: { parts: [{ text: SYSTEM_PROMPT }] },
+    system_instruction: { parts: [{ text: systemPrompt }] },
     contents: [
       {
         role: 'user',
         parts: [
           { inline_data: { mime_type: mimeType, data: arquivo.toString('base64') } },
-          { text: 'Extraia os dados deste cupom fiscal conforme instruído.' },
+          { text: userText },
         ],
       },
     ],
@@ -66,7 +77,7 @@ async function chamarGemini(arquivo: Buffer, mimeType: string): Promise<CupomGem
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
-        signal: AbortSignal.timeout(60_000),
+        signal: AbortSignal.timeout(90_000),
       }
     );
   } catch (err) {
@@ -92,15 +103,22 @@ async function chamarGemini(arquivo: Buffer, mimeType: string): Promise<CupomGem
 
   // Remove eventual cerca de markdown, apesar do response_mime_type
   const jsonLimpo = texto.replace(/^```(?:json)?\s*/i, '').replace(/```\s*$/, '').trim();
-  let dados: CupomGemini;
   try {
-    dados = JSON.parse(jsonLimpo) as CupomGemini;
+    return JSON.parse(jsonLimpo) as T;
   } catch {
-    throw new AppError('Gemini retornou um JSON inválido. Tente uma foto mais nítida do cupom.', 422, {
+    throw new AppError('Gemini retornou um JSON inválido. Tente um arquivo mais nítido.', 422, {
       retorno_bruto: jsonLimpo.slice(0, 500),
     });
   }
-  return dados;
+}
+
+function chamarGemini(arquivo: Buffer, mimeType: string): Promise<CupomGemini> {
+  return requisitarGeminiJson<CupomGemini>(
+    arquivo,
+    mimeType,
+    SYSTEM_PROMPT,
+    'Extraia os dados deste cupom fiscal conforme instruído.'
+  );
 }
 
 function validarCupom(dados: CupomGemini): void {
@@ -183,6 +201,81 @@ export async function processarCupom(arquivo: Buffer, mimeType: string): Promise
       itens: dados.itens.length,
     };
   });
+}
+
+// ============================================================================
+// EXTRATO BANCÁRIO EM PDF/IMAGEM (alternativa ao arquivo OFX)
+// ============================================================================
+
+const SYSTEM_PROMPT_EXTRATO =
+  'Atue como um extrator de extratos bancários. Analise o extrato (PDF ou imagem) ' +
+  'e extraia TODOS os lançamentos/transações. Para cada lançamento extraia: a data ' +
+  '(formato YYYY-MM-DD), a descrição/histórico e o valor. REGRA DE SINAL OBRIGATÓRIA: ' +
+  'valor NEGATIVO para débitos/saídas/pagamentos/compras/saques/transferências enviadas; ' +
+  'valor POSITIVO para créditos/entradas/depósitos/recebimentos/transferências recebidas. ' +
+  'IGNORE linhas de saldo (SALDO ANTERIOR, SALDO DO DIA, SALDO ATUAL, SALDO FINAL, ' +
+  'SALDO DISPONÍVEL, SALDO BLOQUEADO) — não são transações. Ignore cabeçalhos e rodapés. ' +
+  'Retorne estritamente um JSON limpo no formato: ' +
+  '{"transacoes": [{"data": "YYYY-MM-DD", "descricao": string, "valor": float}]} ' +
+  'Sem markdown, sem comentários, sem texto fora do JSON.';
+
+interface LancamentoGemini {
+  data: string;
+  descricao: string;
+  valor: number;
+}
+
+interface ExtratoGemini {
+  transacoes: LancamentoGemini[];
+}
+
+/**
+ * Extrai as transações de um extrato em PDF/imagem via Gemini, normaliza e
+ * valida. Datas sem hora são fixadas ao meio-dia de Brasília (evita virada de
+ * dia por fuso). Retorna no formato TransacaoOfx para reusar hash e importador.
+ */
+export async function extrairExtratoPdf(arquivo: Buffer, mimeType: string): Promise<TransacaoOfx[]> {
+  const dados = await requisitarGeminiJson<ExtratoGemini>(
+    arquivo,
+    mimeType,
+    SYSTEM_PROMPT_EXTRATO,
+    'Extraia todos os lançamentos deste extrato bancário conforme instruído.'
+  );
+
+  if (!dados || !Array.isArray(dados.transacoes)) {
+    throw new AppError(
+      'Não foi possível ler lançamentos neste arquivo. Confirme que é um extrato bancário legível.',
+      422,
+      dados
+    );
+  }
+
+  // Reforço no código: descarta linhas de saldo mesmo que o modelo as inclua.
+  const ehLinhaSaldo = (desc: string) => /\bsaldo\b/i.test(desc);
+
+  const transacoes: TransacaoOfx[] = [];
+  for (const l of dados.transacoes) {
+    const valor = Number(l.valor);
+    if (!l.data || typeof l.data !== 'string' || isNaN(valor) || valor === 0) continue;
+    if (typeof l.descricao === 'string' && ehLinhaSaldo(l.descricao)) continue;
+    const iso = /[T ]/.test(l.data) ? l.data.trim().replace(' ', 'T') : `${l.data.trim()}T12:00:00-03:00`;
+    const data = new Date(/[zZ]|[+-]\d{2}:?\d{2}/.test(iso) ? iso : `${iso}-03:00`);
+    if (isNaN(data.getTime())) continue;
+    transacoes.push({
+      data,
+      valor: Math.round(valor * 100) / 100,
+      descricao: String(l.descricao ?? 'Lançamento sem descrição').trim() || 'Lançamento sem descrição',
+      fitid: null,
+    });
+  }
+
+  if (transacoes.length === 0) {
+    throw new AppError(
+      'Nenhum lançamento válido foi identificado no extrato. Tente um PDF/foto mais nítido ou use o arquivo OFX.',
+      422
+    );
+  }
+  return transacoes;
 }
 
 /** Retorna um cupom com seus itens (usado pelo frontend no accordion). */
