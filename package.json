@@ -4,7 +4,7 @@
   "description": "SaaS de Controle Financeiro Pessoal e Reconciliação Bancária Automatizada (multi-tenant)",
   "main": "dist/src/index.js",
   "scripts": {
-    "prepare": "lefthook install",
+    "prepare": "node -e \"if (!process.env.VERCEL && !process.env.CI && require('fs').existsSync('.git')) { try { require('child_process').execSync('lefthook install', { stdio: 'inherit' }); } catch (e) {} }\"",
     "build": "tsc",
     "start": "node dist/src/index.js",
     "dev": "tsx watch src/index.ts",
