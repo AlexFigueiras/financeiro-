@@ -1,0 +1,19 @@
+# Hooks VERSIONADOS (Seção 10 do Dev OS) — instalados via `npm run prepare`
+# (postinstall), nunca manualmente em .git/hooks/.
+pre-commit:
+  parallel: false
+  commands:
+    verify-rules:
+      run: node scripts/verify-rules.js
+    typecheck:
+      run: npx tsc --noEmit
+    lint:
+      glob: '*.{ts,js}'
+      run: npx eslint {staged_files}
+    sync-skills:
+      run: node scripts/generate.js sync-skills && git add .claude/skills .gemini/skills
+
+commit-msg:
+  commands:
+    conventional-commit:
+      run: node scripts/lib/check-commit-msg.js {1}

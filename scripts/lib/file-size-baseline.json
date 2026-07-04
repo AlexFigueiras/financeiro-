@@ -1,0 +1,3 @@
+{
+  "_comentario": "Arquivos legados que já nasceram acima do limite entram aqui com seu tamanho registrado (ratchet): viram warning, mas não podem crescer além do valor salvo. Reduza o valor conforme o arquivo for modularizado. Vazio hoje — o projeto está dentro do limite em toda parte."
+}

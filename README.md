@@ -1,19 +1,24 @@
-# Painel Financeiro — Controle & Reconciliação Bancária Automatizada
+# Painel Financeiro — SaaS de Controle Financeiro e Reconciliação Bancária
 
-Sistema pessoal que centraliza transações da **Caixa Econômica** (extrato em
-**OFX** ou em **PDF/imagem** lido por IA), extrai itens de **cupons fiscais/NFC-e
-por IA (Gemini)** e reconcilia automaticamente cada cupom com a transação
-bancária correspondente — enriquecendo o extrato macro com os sub-itens reais da
-compra.
+SaaS multi-tenant que centraliza transações bancárias (extrato em **OFX** ou em **PDF/imagem**
+lido por IA), extrai itens de **cupons fiscais/NFC-e por IA (Gemini)** e reconcilia
+automaticamente cada cupom com a transação bancária correspondente — por tenant, com dados
+isolados via Row-Level Security.
+
+> Arquitetura, protocolo de contribuição e Leis de Segurança inegociáveis estão em
+> [`AGENTS.md`](AGENTS.md) — leia antes de mexer no código. Estado por feature em
+> [`docs/STATUS.md`](docs/STATUS.md).
 
 ## Stack
 
 | Camada | Tecnologia |
 |---|---|
-| Backend | Node.js + TypeScript + Express (API-first) |
-| Banco | PostgreSQL / Supabase (SQL bruto, sem ORM) |
+| Backend | Node.js 22 + TypeScript (strict) + Express, organizado por domínio (DDD/hexagonal) |
+| Banco | PostgreSQL / Supabase — SQL puro via `pg`, multi-tenant com RLS |
+| Auth | Supabase Auth (JWT), verificado no backend sem SDK externo |
 | OCR | Google Gemini (`gemini-1.5-flash`, JSON estruturado) |
-| Frontend | HTML/CSS/JS vanilla + Chart.js vendorizado (denso, estilo ERP, light/dark) |
+| Frontend | HTML/CSS/JS vanilla + Chart.js vendorizado (denso, estilo ERP, light/dark), PWA |
+| Qualidade | ESLint, Vitest (cobertura), `verify-rules.js` (boundaries/RLS/segredos), CI |
 
 ## Subindo o sistema
 
@@ -22,134 +27,109 @@ compra.
 npm install
 
 # 2. Configuração
-cp .env.example .env      # preencha DATABASE_URL e GEMINI_API_KEY
+cp .env.example .env
+# Preencha DATABASE_URL e GEMINI_API_KEY.
+# Para dev local SEM configurar Supabase Auth ainda: AUTH_MODE=off (single-user, sem login).
+# Para produção/multi-tenant real: AUTH_MODE=supabase + SUPABASE_URL/SUPABASE_ANON_KEY/SUPABASE_JWT_SECRET.
 
-# 3. Schema do banco (idempotente — pode reexecutar)
-npm run build
-npm run db:migrate        # ou: psql "$DATABASE_URL" -f db/schema.sql
+# 3. Schema do banco (migrations versionadas, idempotentes)
+npm run db:migrate
 
 # 4. Servidor
-npm start                 # produção (dist/)
 npm run dev               # desenvolvimento com hot-reload
+npm start                  # produção (após npm run build)
 ```
 
-Dashboard em `http://localhost:3000`. O servidor sobe mesmo sem a chave do
-Gemini — apenas o OCR de cupons fica indisponível, com mensagem de erro explícita.
+Dashboard em `http://localhost:3000`. Em `AUTH_MODE=supabase`, a tela de login aparece antes do
+painel; o primeiro login de cada usuário provisiona automaticamente o tenant dele (self-service).
 
 ## Deploy em produção
 
-### Render / Railway (servidor tradicional — recomendado)
+### Vercel (serverless — recomendado)
+`api/index.ts` exporta a mesma aplicação Express via `src/app.ts`; `vercel.json` reescreve
+`/api/*`. Configure as variáveis de ambiente do `.env.example` no painel — **use a connection
+string do "Transaction pooler" (porta 6543)** do Supabase, não a conexão direta.
 
-Build command `npm install && npm run build`, start command `npm start`,
-variáveis de ambiente (`DATABASE_URL`, `DATABASE_SSL`, `GEMINI_API_KEY`)
-configuradas no painel do serviço. O cron de reconciliação roda normalmente,
-pois o processo fica de pé.
+### Render / Railway / VPS (servidor tradicional)
+Build `npm install && npm run build`, start `npm start`. O cron de reconciliação por
+`setInterval` só roda aqui (processo de vida longa).
 
-### Vercel (serverless)
+Detalhes de operação e troubleshooting: [`docs/RUNBOOK.md`](docs/RUNBOOK.md).
 
-O projeto já vem preparado: `api/index.ts` exporta a mesma aplicação Express
-via `src/app.ts`, e `vercel.json` reescreve `/api/*` para essa função — nenhuma
-rota muda de endereço.
-
-1. Import do repositório na Vercel, framework preset **Other**.
-2. Em **Environment Variables**, adicione `DATABASE_URL`, `DATABASE_SSL=true`,
-   `GEMINI_API_KEY`.
-3. **Se o banco for Supabase, use a connection string do "Transaction pooler"
-   (porta 6543), não a conexão direta (porta 5432)**. Funções serverless abrem
-   muitas conexões concorrentes e a conexão direta tem limite baixo — sem o
-   pooler, as rotas que tocam o banco falham com 500 mesmo com as variáveis
-   corretas. Pegue essa string em Supabase → Settings → Database → Connection
-   pooling.
-4. O cron por `setInterval` **não existe no Vercel** (funções são efêmeras).
-   Isso não é um problema: a reconciliação já dispara automaticamente a cada
-   upload de OFX/cupom. Se quiser também uma varredura periódica, configure um
-   [Vercel Cron Job](https://vercel.com/docs/cron-jobs) apontando para
-   `POST /api/transacoes/reconciliar`.
-
-## Arquitetura
+## Arquitetura (visão rápida)
 
 ```
-db/schema.sql                  Schema completo: tabelas, índices, trigger de saldo,
-                               fn_reconciliar() (o motor de match vive no banco)
-api/index.ts                   Entry point serverless (Vercel) — reexporta src/app.ts
-vercel.json                    Reescreve /api/* para a função acima
-src/
-  app.ts                       Monta o Express app (rotas, estático, error handler)
-  index.ts                     Entry point tradicional: app.listen() + cron
-  config/env.ts                Validação de variáveis de ambiente
-  db/pool.ts                   Pool pg + helper de transação
-  middleware/errorHandler.ts   AppError, asyncHandler, tratamento 23505 etc.
-  services/
-    ofx.ts                     Parser OFX SGML/XML próprio + dedup por hash
-    gemini.ts                  OCR estruturado + validação soma dos itens
-    reconciliacao.ts           Invoca fn_reconciliar() após cada ingestão e no cron
-  routes/                      contas, transacoes, extrato, cupons, dashboard
-  scripts/migrate.ts           Aplica db/schema.sql
-public/                        Dashboard (index.html, styles.css, app.js, Chart.js)
+domains/            Lógica de negócio, um subdiretório por domínio:
+  tenancy              resolve/provisiona o tenant do usuário autenticado
+  contas               CRUD de contas bancárias
+  extrato              ingestão de extrato (OFX ou OCR de PDF/imagem)
+  cupons               OCR de cupom fiscal + itens
+  categorias           catálogo de categorias de gasto
+  transacoes           listagem + categorização de lançamentos
+  reconciliacao        motor de match cupom ↔ transação
+  dashboard            KPIs e agregações (read model)
+  <dominio>/CONTEXT.md   playbook local; index.ts é a única porta de entrada pública
+events/              contratos de eventos (Zod) — comunicação entre domínios
+shared/              infra transversal sem regra de negócio (auth, logger, env, errors...)
+infra/db/            pool Postgres + migrations versionadas
+app.ts  index.ts     wiring do Express + cron
+api/index.ts         entry point serverless (Vercel)
+public/              frontend (dashboard + login)
+scripts/             verify-rules.js (análise estática) + generate.js (scaffolding)
 ```
+
+Diagrama completo de domínios e eventos: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
 
 ### Modelo de dados
 
-- `contas_bancarias` — saldo mantido por **trigger** a cada insert/update/delete de transação.
-- `transacoes_banco` — `valor` positivo = entrada, negativo = saída; `hash_ofx`
-  **UNIQUE** = sha256(data|valor|descrição|conta) impede duplicidade em qualquer
-  reupload (regra antitransbordamento); `cupom_id` é o vínculo lógico do match.
-- `cupons_fiscais` — cabeçalho + `json_bruto_ia` (JSONB) para auditoria da extração.
-- `itens_cupom` — desmembramento produto a produto com categoria.
-- Índices em data, valor, e **índice parcial** sobre transações pendentes
-  (`WHERE status_reconciliado = FALSE`) para o motor de reconciliação.
-- Todas as colunas temporais são `TIMESTAMPTZ`; datas sem fuso explícito são
-  interpretadas como `America/Sao_Paulo`.
+- Toda tabela de dados tem `tenant_id` + Row-Level Security (Lei de Segurança, `AGENTS.md`).
+- `contas_bancarias` — saldo mantido por trigger a cada insert/update/delete de transação.
+- `transacoes_banco` — `valor` positivo = entrada, negativo = saída; `hash_ofx` único por
+  `(tenant_id, hash_ofx)` impede duplicidade em reupload; `cupom_id` é o vínculo do match.
+- `cupons_fiscais` / `itens_cupom` — cabeçalho + desmembramento produto a produto.
+- `tenants` / `tenant_members` — workspace isolado e vínculo usuário↔tenant.
+- Todas as colunas temporais são `TIMESTAMPTZ`; datas sem fuso explícito assumem
+  `America/Sao_Paulo`.
 
 ### Motor de reconciliação (`fn_reconciliar`)
 
-Roda após cada upload de OFX, cada cupom processado e no cron periódico.
-Critérios simultâneos:
+Roda após cada upload de OFX/cupom (por gatilho). Critérios simultâneos, **por tenant**:
 
 1. `ABS(valor)` da saída bancária **igual centavo por centavo** ao `valor_total` do cupom;
-2. `data_transacao` dentro de **±48h** da `data_emissao` (janela de compensação);
-3. em empate, vence a transação **mais próxima no tempo**;
-4. vínculo **1:1** garantido por índice único parcial (um cupom nunca liga a duas transações).
+2. `data_transacao` dentro de **±48h** da `data_emissao`;
+3. em empate, vence a transação mais próxima no tempo;
+4. vínculo **1:1** garantido por índice único parcial.
 
 ## API
 
+Toda rota `/api/*` (exceto as três abaixo) exige `Authorization: Bearer <token>` do Supabase Auth
+quando `AUTH_MODE=supabase`.
+
 | Método | Rota | Descrição |
 |---|---|---|
-| GET | `/api/health` | Status do serviço e do banco |
-| GET | `/api/contas` | Lista contas e saldos |
+| GET | `/api/health` | Liveness (não toca o banco) |
+| GET | `/api/health/ready` | Readiness (testa conexão com o banco) |
+| GET | `/api/config` | Config pública do frontend (`authMode`, credenciais públicas do Supabase) |
+| GET | `/api/contas` | Lista contas e saldos do tenant |
 | POST | `/api/contas` | Cria conta (`{nome, tipo}`) |
 | GET | `/api/transacoes?mes=YYYY-MM` | Lista unificada; reconciliadas trazem `itens_cupom` embutidos |
+| PATCH | `/api/transacoes/:id/categoria` | Recategoriza lançamento sem cupom (aprende a regra) |
 | POST | `/api/transacoes/reconciliar` | Dispara o motor manualmente |
-| POST | `/api/extrato/upload-ofx` | multipart `arquivo` (.ofx **ou** PDF/imagem do extrato) [+ `conta_id`] — OFX via parser local, PDF/imagem via Gemini |
+| POST | `/api/extrato/upload-ofx` | multipart `arquivo` (.ofx ou PDF/imagem) [+ `conta_id`] |
 | POST | `/api/cupons/upload` | multipart `arquivo` (foto/PDF do cupom → Gemini) |
 | GET | `/api/cupons/:id` | Cupom com itens desmembrados |
+| GET | `/api/cupons/categorias` | Catálogo de categorias do tenant |
+| PATCH | `/api/cupons/itens/:id/categoria` | Recategoriza item de cupom (aprende a regra) |
 | GET | `/api/dashboard/resumo?mes=YYYY-MM` | KPIs: saldo, ganhos, gastos, balanço |
 | GET | `/api/dashboard/fluxo-diario?mes=YYYY-MM` | Série diária ganhos vs gastos |
-| GET | `/api/dashboard/gastos-por-categoria?mes=YYYY-MM` | Categorias dos cupons reconciliados + agregado "não detalhado" |
+| GET | `/api/dashboard/gastos-por-categoria?mes=YYYY-MM` | Distribuição por categoria |
 
-### Exemplos
+## Segurança
 
-```bash
-# Upload de extrato OFX da Caixa (idempotente)
-curl -F "arquivo=@extrato.ofx" http://localhost:3000/api/extrato/upload-ofx
+Ver Seção 5 de [`AGENTS.md`](AGENTS.md) para a lista completa das Leis de Segurança
+(multi-tenant + RLS, credenciais nunca no cliente, gestão de segredos, menor privilégio, TLS do
+banco) e como cada uma é verificada automaticamente por `npm run verify-rules` e pelo CI.
 
-# Upload de cupom fiscal (foto)
-curl -F "arquivo=@cupom.jpg" http://localhost:3000/api/cupons/upload
-```
+## Contribuindo
 
-## Segurança e tratamento de erros
-
-- Tokens **somente** via `.env` (nunca em código; `.env` está no `.gitignore`).
-- Todas as queries usam **parâmetros posicionais** (sem interpolação de SQL).
-- Uploads com limite de tamanho (OFX 5 MB, cupom 15 MB) e validação de MIME type.
-- Erros de API externa (401/403, 429, timeout, rede) mapeados para respostas
-  HTTP explícitas (502/503) com mensagens acionáveis.
-- Validação da extração da IA: JSON malformado, campos ausentes e **divergência
-  entre soma dos itens e valor total** (tolerância R$ 0,05) são rejeitados com 422.
-- Escritas multi-tabela (cupom + itens) em **transação** com rollback automático.
-
-## Cron
-
-A cada `SYNC_INTERVAL_MINUTES` (padrão 30) o servidor executa a reconciliação
-como rede de segurança. Alternativa server-side: agendar
-`SELECT * FROM fn_reconciliar();` via `pg_cron` no Supabase.
+Ver [`CONTRIBUTING.md`](CONTRIBUTING.md).
