@@ -4,7 +4,11 @@ import { env } from '../config/env';
 export const pool = new Pool({
   connectionString: env.databaseUrl,
   ssl: env.databaseSsl ? { rejectUnauthorized: false } : undefined,
-  max: 10,
+  // Baixo de propósito: em ambiente serverless (Vercel) cada instância da
+  // função mantém seu próprio pool, e muitas instâncias concorrentes podem
+  // esgotar o limite de conexões do Postgres. Se estiver no Supabase, use a
+  // connection string do "Transaction pooler" (porta 6543) em DATABASE_URL.
+  max: 3,
   idleTimeoutMillis: 30_000,
   connectionTimeoutMillis: 10_000,
 });

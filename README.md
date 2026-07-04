@@ -35,13 +35,46 @@ npm run dev               # desenvolvimento com hot-reload
 Dashboard em `http://localhost:3000`. O servidor sobe mesmo sem a chave do
 Gemini — apenas o OCR de cupons fica indisponível, com mensagem de erro explícita.
 
+## Deploy em produção
+
+### Render / Railway (servidor tradicional — recomendado)
+
+Build command `npm install && npm run build`, start command `npm start`,
+variáveis de ambiente (`DATABASE_URL`, `DATABASE_SSL`, `GEMINI_API_KEY`)
+configuradas no painel do serviço. O cron de reconciliação roda normalmente,
+pois o processo fica de pé.
+
+### Vercel (serverless)
+
+O projeto já vem preparado: `api/index.ts` exporta a mesma aplicação Express
+via `src/app.ts`, e `vercel.json` reescreve `/api/*` para essa função — nenhuma
+rota muda de endereço.
+
+1. Import do repositório na Vercel, framework preset **Other**.
+2. Em **Environment Variables**, adicione `DATABASE_URL`, `DATABASE_SSL=true`,
+   `GEMINI_API_KEY`.
+3. **Se o banco for Supabase, use a connection string do "Transaction pooler"
+   (porta 6543), não a conexão direta (porta 5432)**. Funções serverless abrem
+   muitas conexões concorrentes e a conexão direta tem limite baixo — sem o
+   pooler, as rotas que tocam o banco falham com 500 mesmo com as variáveis
+   corretas. Pegue essa string em Supabase → Settings → Database → Connection
+   pooling.
+4. O cron por `setInterval` **não existe no Vercel** (funções são efêmeras).
+   Isso não é um problema: a reconciliação já dispara automaticamente a cada
+   upload de OFX/cupom. Se quiser também uma varredura periódica, configure um
+   [Vercel Cron Job](https://vercel.com/docs/cron-jobs) apontando para
+   `POST /api/transacoes/reconciliar`.
+
 ## Arquitetura
 
 ```
 db/schema.sql                  Schema completo: tabelas, índices, trigger de saldo,
                                fn_reconciliar() (o motor de match vive no banco)
+api/index.ts                   Entry point serverless (Vercel) — reexporta src/app.ts
+vercel.json                    Reescreve /api/* para a função acima
 src/
-  index.ts                     Bootstrap Express + cron de reconciliação
+  app.ts                       Monta o Express app (rotas, estático, error handler)
+  index.ts                     Entry point tradicional: app.listen() + cron
   config/env.ts                Validação de variáveis de ambiente
   db/pool.ts                   Pool pg + helper de transação
   middleware/errorHandler.ts   AppError, asyncHandler, tratamento 23505 etc.
