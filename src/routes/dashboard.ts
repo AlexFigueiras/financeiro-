@@ -94,33 +94,36 @@ dashboardRouter.get(
     const mes = validarMes(req.query.mes);
     const params = [`${mes}-01`];
 
-    const [categorias, naoDetalhado] = await Promise.all([
-      pool.query(
-        `SELECT i.categoria, SUM(i.valor_total) AS total
-           FROM itens_cupom i
-           JOIN cupons_fiscais cf ON cf.id = i.cupom_id
-           JOIN transacoes_banco t ON t.cupom_id = cf.id AND t.status_reconciliado = TRUE
-          WHERE t.data_transacao >= ($1::date AT TIME ZONE '${TZ}')
-            AND t.data_transacao <  (($1::date + INTERVAL '1 month') AT TIME ZONE '${TZ}')
-          GROUP BY i.categoria
-          ORDER BY total DESC`,
-        params
-      ),
-      pool.query(
-        `SELECT COALESCE(ABS(SUM(valor)), 0) AS total
-           FROM transacoes_banco
-          WHERE valor < 0
-            AND cupom_id IS NULL
-            AND data_transacao >= ($1::date AT TIME ZONE '${TZ}')
-            AND data_transacao <  (($1::date + INTERVAL '1 month') AT TIME ZONE '${TZ}')`,
-        params
-      ),
-    ]);
+    const { rows } = await pool.query(
+      `SELECT cat AS categoria, SUM(val) AS total
+         FROM (
+           -- Sub-itens de cupons reconciliados
+           SELECT i.categoria AS cat, i.valor_total AS val
+             FROM itens_cupom i
+             JOIN cupons_fiscais cf ON cf.id = i.cupom_id
+             JOIN transacoes_banco t ON t.cupom_id = cf.id AND t.status_reconciliado = TRUE
+            WHERE t.data_transacao >= ($1::date AT TIME ZONE '${TZ}')
+              AND t.data_transacao <  (($1::date + INTERVAL '1 month') AT TIME ZONE '${TZ}')
+
+           UNION ALL
+
+           -- Transações de saída não reconciliadas (sem cupom)
+           SELECT t.categoria AS cat, ABS(t.valor) AS val
+             FROM transacoes_banco t
+            WHERE t.valor < 0
+              AND t.cupom_id IS NULL
+              AND t.data_transacao >= ($1::date AT TIME ZONE '${TZ}')
+              AND t.data_transacao <  (($1::date + INTERVAL '1 month') AT TIME ZONE '${TZ}')
+         ) sub
+        GROUP BY cat
+        ORDER BY total DESC`,
+      params
+    );
 
     res.json({
       mes,
-      categorias: categorias.rows.map((r) => ({ categoria: r.categoria, total: Number(r.total) })),
-      gastosNaoDetalhados: Number(naoDetalhado.rows[0].total),
+      categorias: rows.map((r) => ({ categoria: r.categoria, total: Number(r.total) })),
+      gastosNaoDetalhados: 0,
     });
   })
 );

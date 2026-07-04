@@ -54,8 +54,12 @@ CREATE TABLE IF NOT EXISTS transacoes_banco (
     cupom_id            BIGINT      REFERENCES cupons_fiscais(id) ON DELETE SET NULL,  -- vínculo lógico do match
     origem              TEXT        NOT NULL DEFAULT 'ofx'
                                     CHECK (origem IN ('ofx', 'manual')),
+    categoria           TEXT        NOT NULL DEFAULT 'outros',
     criado_em           TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+-- Garante que a coluna existe caso a tabela já tenha sido criada anteriormente
+ALTER TABLE transacoes_banco ADD COLUMN IF NOT EXISTS categoria TEXT NOT NULL DEFAULT 'outros';
 
 -- Índices para busca por data e valor (reconciliação + dashboards)
 CREATE INDEX IF NOT EXISTS idx_transacoes_data          ON transacoes_banco (data_transacao);
@@ -160,5 +164,44 @@ $$ LANGUAGE plpgsql;
 INSERT INTO contas_bancarias (nome, tipo)
 VALUES ('Caixa Econômica', 'corrente')
 ON CONFLICT (nome) DO NOTHING;
+
+-- ----------------------------------------------------------------------------
+-- 8. CATEGORIAS DE CONSUMO
+-- ----------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS categorias (
+    id              BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    chave           TEXT NOT NULL UNIQUE, -- ex: 'alimentacao'
+    nome            TEXT NOT NULL,        -- ex: 'Alimentação'
+    cor             TEXT NOT NULL         -- cor hexadecimal ou variável CSS
+);
+
+-- Popula categorias de consumo comuns
+INSERT INTO categorias (chave, nome, cor) VALUES
+  ('alimentacao', 'Alimentação', 'var(--cat-2)'),
+  ('bebidas', 'Bebidas', 'var(--cat-1)'),
+  ('limpeza', 'Limpeza', 'var(--cat-3)'),
+  ('higiene', 'Higiene', 'var(--cat-4)'),
+  ('hortifruti', 'Hortifruti', 'var(--cat-5)'),
+  ('padaria', 'Padaria', 'var(--cat-6)'),
+  ('carnes', 'Carnes', 'var(--cat-7)'),
+  ('farmacia', 'Farmácia', 'var(--cat-8)'),
+  ('transporte', 'Transporte', '#eb6834'),
+  ('lazer', 'Lazer', '#4a3aa7'),
+  ('vestuario', 'Vestuário', '#e87ba4'),
+  ('eletronicos', 'Eletrônicos', '#2a78d6'),
+  ('moradia', 'Moradia', '#eda100'),
+  ('combustivel', 'Combustível', '#a855f7'),
+  ('outros', 'Outros', '#898781')
+ON CONFLICT (chave) DO NOTHING;
+
+-- ----------------------------------------------------------------------------
+-- 9. REGRAS DE CATEGORIZAÇÃO (AUTOMÁTICA E APRENDIDA)
+-- ----------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS regras_categorizacao (
+    id              BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    termo           TEXT NOT NULL UNIQUE, -- nome_produto em minúsculas
+    categoria_chave TEXT NOT NULL REFERENCES categorias(chave) ON DELETE CASCADE,
+    criado_em       TIMESTAMPTZ NOT NULL DEFAULT now()
+);
 
 COMMIT;

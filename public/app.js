@@ -12,22 +12,29 @@
 
   const fmtBRL = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
   const fmtQtd = new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 3 });
+  const fmtData = new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short', timeZone: 'America/Sao_Paulo' });
+  const fmtDataHora = new Intl.DateTimeFormat('pt-BR', {
+    dateStyle: 'short',
+    timeStyle: 'medium',
+    timeZone: 'America/Sao_Paulo'
+  });
 
   let graficoFluxo = null;
   let graficoCategorias = null;
+  let listaCategorias = [];
+  const transacoesExpandidas = new Set();
 
   const $ = (id) => document.getElementById(id);
 
   // ---- Feedback ao usuário --------------------------------------------------
   let feedbackTimer = null;
-  function mostrarFeedback(mensagem, tipo = 'sucesso', persistente = false) {
+  function mostrarFeedback(mensagem, tipo = 'sucesso') {
     const el = $('feedback');
     el.textContent = mensagem;
     el.className = `feedback ${tipo}`;
     el.hidden = false;
     clearTimeout(feedbackTimer);
-    // Mensagens de "processando" ficam até o resultado chegar (não somem sozinhas).
-    if (!persistente) feedbackTimer = setTimeout(() => { el.hidden = true; }, 8000);
+    feedbackTimer = setTimeout(() => { el.hidden = true; }, 8000);
   }
 
   async function chamarApi(url, opcoes) {
@@ -38,6 +45,35 @@
       throw new Error(corpo.erro || `Falha na requisição (${resposta.status}).`);
     }
     return corpo;
+  }
+
+  async function carregarCategoriasMenu() {
+    if (MODO_DEMO) {
+      listaCategorias = [
+        { chave: 'alimentacao', nome: 'Alimentação', cor: 'var(--cat-2)' },
+        { chave: 'bebidas', nome: 'Bebidas', cor: 'var(--cat-1)' },
+        { chave: 'limpeza', nome: 'Limpeza', cor: 'var(--cat-3)' },
+        { chave: 'higiene', nome: 'Higiene', cor: 'var(--cat-4)' },
+        { chave: 'hortifruti', nome: 'Hortifruti', cor: 'var(--cat-5)' },
+        { chave: 'padaria', nome: 'Padaria', cor: 'var(--cat-6)' },
+        { chave: 'carnes', nome: 'Carnes', cor: 'var(--cat-7)' },
+        { chave: 'farmacia', nome: 'Farmácia', cor: 'var(--cat-8)' },
+        { chave: 'transporte', nome: 'Transporte', cor: '#eb6834' },
+        { chave: 'lazer', nome: 'Lazer', cor: '#4a3aa7' },
+        { chave: 'vestuario', nome: 'Vestuário', cor: '#e87ba4' },
+        { chave: 'eletronicos', nome: 'Eletrônicos', cor: '#2a78d6' },
+        { chave: 'moradia', nome: 'Moradia', cor: '#eda100' },
+        { chave: 'combustivel', nome: 'Combustível', cor: '#a855f7' },
+        { chave: 'outros', nome: 'Outros', cor: '#898781' }
+      ];
+      return;
+    }
+    try {
+      listaCategorias = await chamarApi('/api/cupons/categorias');
+    } catch (e) {
+      console.error('Erro ao carregar categorias:', e);
+      mostrarFeedback('Não foi possível carregar as categorias.', 'erro');
+    }
   }
 
   function mesSelecionado() {
@@ -218,7 +254,7 @@
     const titulo = document.createElement('div');
     titulo.className = 'itens-titulo';
     titulo.textContent = `Cupom fiscal — ${transacao.estabelecimento ?? ''} · emissão ${
-      transacao.cupom_data_emissao ? new Date(transacao.cupom_data_emissao).toLocaleString('pt-BR') : '—'
+      transacao.cupom_data_emissao ? fmtDataHora.format(new Date(transacao.cupom_data_emissao)) : '—'
     }`;
 
     const tabela = document.createElement('table');
@@ -240,10 +276,63 @@
         linha.appendChild(c);
       }
       const cCat = document.createElement('td');
-      const chip = document.createElement('span');
-      chip.className = 'chip-categoria';
-      chip.textContent = item.categoria;
-      cCat.appendChild(chip);
+      
+      const select = document.createElement('select');
+      select.className = 'select-categoria-chip';
+      
+      // Encontra a cor da categoria atual para pintar o fundo do select
+      const catAtual = listaCategorias.find((c) => c.chave === item.categoria);
+      const corFundo = catAtual ? catAtual.cor : '#898781';
+      select.style.backgroundColor = corFundo;
+      select.style.color = '#ffffff'; // Texto branco nos chips para garantir alto contraste
+      select.style.border = 'none';
+      select.style.borderRadius = '999px';
+      select.style.padding = '2px 8px';
+      select.style.fontSize = '10.5px';
+      select.style.fontWeight = '600';
+      select.style.cursor = 'pointer';
+      select.style.textTransform = 'capitalize';
+      select.style.webkitAppearance = 'none'; // remove estilo padrão do sistema
+      select.style.mozAppearance = 'none';
+      select.style.appearance = 'none';
+      
+      for (const cat of listaCategorias) {
+        const opt = document.createElement('option');
+        opt.value = cat.chave;
+        opt.textContent = cat.nome;
+        opt.selected = cat.chave === item.categoria;
+        opt.style.backgroundColor = 'var(--superficie)';
+        opt.style.color = 'var(--ink-primario)';
+        select.appendChild(opt);
+      }
+
+      // Adiciona o listener para atualizar a categoria
+      select.addEventListener('change', async (e) => {
+        const novaCat = e.target.value;
+        const catEscolhida = listaCategorias.find((c) => c.chave === novaCat);
+        select.style.backgroundColor = catEscolhida ? catEscolhida.cor : '#898781';
+
+        try {
+          select.disabled = true;
+          const res = await chamarApi(`/api/cupons/itens/${item.id}/categoria`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ categoria: novaCat }),
+          });
+          mostrarFeedback(res.mensagem, 'sucesso');
+          await atualizarTudo();
+        } catch (erro) {
+          mostrarFeedback(`Erro ao atualizar categoria: ${erro.message}`, 'erro');
+          // Reverte a seleção no erro
+          select.value = item.categoria;
+          const catOriginal = listaCategorias.find((c) => c.chave === item.categoria);
+          select.style.backgroundColor = catOriginal ? catOriginal.cor : '#898781';
+        } finally {
+          select.disabled = false;
+        }
+      });
+
+      cCat.appendChild(select);
       linha.appendChild(cCat);
       corpo.appendChild(linha);
     }
@@ -272,7 +361,7 @@
 
       const valor = Number(t.valor);
       const tdData = document.createElement('td');
-      tdData.textContent = new Date(t.data_transacao).toLocaleDateString('pt-BR');
+      tdData.textContent = fmtData.format(new Date(t.data_transacao));
       const tdConta = document.createElement('td');
       const badgeConta = document.createElement('span');
       badgeConta.className = 'badge badge-origem';
@@ -287,6 +376,61 @@
         badge.textContent = '🧾 Detalhado ▾';
         badge.title = 'Transação reconciliada com cupom fiscal — clique para ver os itens';
         tdStatus.appendChild(badge);
+      } else if (valor < 0) {
+        // Dropdown de categoria para despesas não reconciliadas
+        const select = document.createElement('select');
+        select.className = 'select-categoria-chip';
+        
+        const catAtual = listaCategorias.find((c) => c.chave === t.categoria);
+        const corFundo = catAtual ? catAtual.cor : '#898781';
+        select.style.backgroundColor = corFundo;
+        select.style.color = '#ffffff';
+        select.style.border = 'none';
+        select.style.borderRadius = '999px';
+        select.style.padding = '2px 8px';
+        select.style.fontSize = '10.5px';
+        select.style.fontWeight = '600';
+        select.style.cursor = 'pointer';
+        select.style.textTransform = 'capitalize';
+        select.style.webkitAppearance = 'none';
+        select.style.mozAppearance = 'none';
+        select.style.appearance = 'none';
+        
+        for (const cat of listaCategorias) {
+          const opt = document.createElement('option');
+          opt.value = cat.chave;
+          opt.textContent = cat.nome;
+          opt.selected = cat.chave === t.categoria;
+          opt.style.backgroundColor = 'var(--superficie)';
+          opt.style.color = 'var(--ink-primario)';
+          select.appendChild(opt);
+        }
+
+        select.addEventListener('change', async (e) => {
+          const novaCat = e.target.value;
+          const catEscolhida = listaCategorias.find((c) => c.chave === novaCat);
+          select.style.backgroundColor = catEscolhida ? catEscolhida.cor : '#898781';
+
+          try {
+            select.disabled = true;
+            const res = await chamarApi(`/api/transacoes/${t.id}/categoria`, {
+              method: 'PATCH',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ categoria: novaCat }),
+            });
+            mostrarFeedback(res.mensagem, 'sucesso');
+            await atualizarTudo();
+          } catch (erro) {
+            mostrarFeedback(`Erro ao atualizar categoria: ${erro.message}`, 'erro');
+            select.value = t.categoria;
+            const catOriginal = listaCategorias.find((c) => c.chave === t.categoria);
+            select.style.backgroundColor = catOriginal ? catOriginal.cor : '#898781';
+          } finally {
+            select.disabled = false;
+          }
+        });
+
+        tdStatus.appendChild(select);
       } else {
         tdStatus.innerHTML = '<span class="painel-sub">—</span>';
       }
@@ -300,8 +444,20 @@
       if (temCupom) {
         const linhaItens = linhaItensCupom(t);
         corpo.appendChild(linhaItens);
+
+        // Se a transação já estava expandida antes de atualizar, restaura o estado
+        if (transacoesExpandidas.has(t.id)) {
+          linhaItens.hidden = false;
+        }
+
         tr.addEventListener('click', () => {
-          linhaItens.hidden = !linhaItens.hidden;
+          const oculto = !linhaItens.hidden;
+          linhaItens.hidden = oculto;
+          if (oculto) {
+            transacoesExpandidas.delete(t.id);
+          } else {
+            transacoesExpandidas.add(t.id);
+          }
         });
       }
     }
@@ -313,19 +469,8 @@
     const input = $(idInput);
 
     const enviar = async (arquivo) => {
-      if (!arquivo) {
-        mostrarFeedback('Nenhum arquivo reconhecido. Tente clicar na área e selecionar o arquivo.', 'erro');
-        return;
-      }
+      if (!arquivo) return;
       zona.classList.add('enviando');
-      const ehPdfOuImagem = arquivo.type === 'application/pdf' || arquivo.type.startsWith('image/');
-      mostrarFeedback(
-        ehPdfOuImagem
-          ? `${nomeAmigavel}: processando "${arquivo.name}" com IA — isso pode levar até 1 minuto…`
-          : `${nomeAmigavel}: enviando "${arquivo.name}"…`,
-        'sucesso',
-        true // persistente até o resultado
-      );
       try {
         const form = new FormData();
         form.append('arquivo', arquivo);
@@ -394,7 +539,7 @@
       aviso.hidden = false;
       clearTimeout(feedbackTimer); // banner permanente no demo
     }
-    atualizarTudo();
+    carregarCategoriasMenu().then(() => atualizarTudo());
   }
 
   document.addEventListener('DOMContentLoaded', iniciar);
