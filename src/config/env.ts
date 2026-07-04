@@ -18,16 +18,27 @@ function optional(name: string, fallback: string): string {
   return value && value.trim() !== '' ? value.trim() : fallback;
 }
 
+// TODAS as variáveis são lidas sob demanda (getters lazy). Isso é essencial no
+// Vercel: se a validação rodasse no import e alguma variável faltasse, a função
+// serverless quebraria já na inicialização (FUNCTION_INVOCATION_FAILED, sem log
+// útil). Com getters, uma variável ausente vira um erro tratado no handler.
 export const env = {
-  databaseUrl: required('DATABASE_URL'),
-  databaseSsl: optional('DATABASE_SSL', 'true') === 'true',
-  port: parseInt(optional('PORT', '3000'), 10),
-  syncIntervalMinutes: parseInt(optional('SYNC_INTERVAL_MINUTES', '30'), 10),
-
-  // Token lido sob demanda (lazy) para que o servidor suba mesmo sem ele —
-  // o módulo de OCR falha com erro claro se ausente.
+  get databaseUrl(): string {
+    return required('DATABASE_URL');
+  },
+  get databaseSsl(): boolean {
+    return optional('DATABASE_SSL', 'true') === 'true';
+  },
+  get port(): number {
+    return parseInt(optional('PORT', '3000'), 10);
+  },
+  get syncIntervalMinutes(): number {
+    return parseInt(optional('SYNC_INTERVAL_MINUTES', '30'), 10);
+  },
   get geminiApiKey(): string {
     return required('GEMINI_API_KEY');
   },
-  geminiModel: optional('GEMINI_MODEL', 'gemini-1.5-flash'),
+  get geminiModel(): string {
+    return optional('GEMINI_MODEL', 'gemini-1.5-flash');
+  },
 };
