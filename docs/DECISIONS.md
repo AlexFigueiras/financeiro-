@@ -5,6 +5,15 @@
 
 ---
 
+## [2026-07-05] Fix: Correção de fuso horário e transações duplicadas em limites mensais
+
+- **Status:** accepted
+- **Contexto:** ao editar uma transação e alterar seu mês para o primeiro dia de outro mês (ex: 01/08), o item aparecia no mês destino mas também continuava a ser exibido no mês de origem. Além disso, lançamentos manuais sofriam deslocamento de um dia na listagem devido ao fuso UTC/America/Sao_Paulo (dia 05/08 virava 04/08).
+- **Decisão:**
+  - **Consultas de períodos:** Alterar os castings das datas iniciais e finais de `$2::date` para `$2::timestamp` antes de aplicar `AT TIME ZONE` nas queries SQL de listagem de transações e relatórios do dashboard. Isso evita que o Postgres infira `timestamp without time zone` na data inicial, o que causava uma janela de sobreposição de fuso de 3 horas entre os meses subsequentes.
+  - **Normalização de datas de entrada:** Ajustar a validação de data (`validarData`) no backend de transações para que datas em formato `YYYY-MM-DD` sejam interpretadas no fuso de Brasília (`-03:00`) ao meio-dia (`12:00:00`), eliminando o bug de deslocamento de dia (day shift) do fuso local e mantendo paridade com o comportamento do parser de OFX.
+- **Arquivos impactados:** `src/domains/transacoes/services/transacoes-service.ts`, `src/domains/transacoes/adapters/transacoes-repository-pg.ts`, `src/domains/dashboard/adapters/dashboard-repository-pg.ts`.
+
 ## [2026-07-05] Categorização em lote e regras padrão de semente (seed)
 
 - **Status:** accepted

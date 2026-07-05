@@ -60,8 +60,8 @@ export const transacoesRepositoryPg: TransacoesRepository = {
     if (filtro.mes) {
       params.push(`${filtro.mes}-01`);
       filtros.push(
-        `t.data_transacao >= ($${params.length}::date AT TIME ZONE '${TZ}')
-         AND t.data_transacao < (($${params.length}::date + INTERVAL '1 month') AT TIME ZONE '${TZ}')`
+        `t.data_transacao >= ($${params.length}::timestamp AT TIME ZONE '${TZ}')
+         AND t.data_transacao < (($${params.length}::timestamp + INTERVAL '1 month') AT TIME ZONE '${TZ}')`
       );
     }
     if (filtro.contaId !== undefined) {

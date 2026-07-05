@@ -16,8 +16,8 @@ export const dashboardRepositoryPg: DashboardRepository = {
                 COALESCE(ABS(SUM(valor) FILTER (WHERE valor < 0)), 0) AS gastos
            FROM transacoes_banco
           WHERE tenant_id = $1
-            AND data_transacao >= ($2::date AT TIME ZONE '${TZ}')
-            AND data_transacao <  (($2::date + INTERVAL '1 month') AT TIME ZONE '${TZ}')`,
+            AND data_transacao >= ($2::timestamp AT TIME ZONE '${TZ}')
+            AND data_transacao <  (($2::timestamp + INTERVAL '1 month') AT TIME ZONE '${TZ}')`,
         [tenantId, `${mes}-01`]
       ),
     ]);
@@ -68,8 +68,8 @@ export const dashboardRepositoryPg: DashboardRepository = {
              JOIN cupons_fiscais cf ON cf.id = i.cupom_id
              JOIN transacoes_banco t ON t.cupom_id = cf.id AND t.status_reconciliado = TRUE
             WHERE t.tenant_id = $1
-              AND t.data_transacao >= ($2::date AT TIME ZONE '${TZ}')
-              AND t.data_transacao <  (($2::date + INTERVAL '1 month') AT TIME ZONE '${TZ}')
+              AND t.data_transacao >= ($2::timestamp AT TIME ZONE '${TZ}')
+              AND t.data_transacao <  (($2::timestamp + INTERVAL '1 month') AT TIME ZONE '${TZ}')
 
            UNION ALL
 
@@ -79,8 +79,8 @@ export const dashboardRepositoryPg: DashboardRepository = {
             WHERE t.tenant_id = $1
               AND t.valor < 0
               AND t.cupom_id IS NULL
-              AND t.data_transacao >= ($2::date AT TIME ZONE '${TZ}')
-              AND t.data_transacao <  (($2::date + INTERVAL '1 month') AT TIME ZONE '${TZ}')
+              AND t.data_transacao >= ($2::timestamp AT TIME ZONE '${TZ}')
+              AND t.data_transacao <  (($2::timestamp + INTERVAL '1 month') AT TIME ZONE '${TZ}')
          ) sub
         GROUP BY cat
         ORDER BY total DESC`,

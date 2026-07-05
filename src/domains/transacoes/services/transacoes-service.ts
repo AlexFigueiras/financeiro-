@@ -36,7 +36,11 @@ export function criarTransacoesService(
 
   function validarData(bruto: unknown): string {
     if (typeof bruto !== 'string' || !bruto.trim()) throw new AppError('Data inválida.', 400);
-    const data = new Date(bruto);
+    let strData = bruto.trim();
+    if (/^\d{4}-\d{2}-\d{2}$/.test(strData)) {
+      strData = `${strData}T12:00:00-03:00`;
+    }
+    const data = new Date(strData);
     if (isNaN(data.getTime())) throw new AppError('Data inválida.', 400);
     return data.toISOString();
   }

@@ -111,6 +111,20 @@ describe('transacoesService.criar', () => {
     ).rejects.toThrow('Data inválida');
   });
 
+  it('interpreta data YYYY-MM-DD no fuso de Brasília (UTC-3)', async () => {
+    let dadosCapturados: any;
+    const repo = fakeRepo({
+      async criar(_tenantId, dados) {
+        dadosCapturados = dados;
+        return TRANSACAO_FAKE;
+      },
+    });
+    const service = criarTransacoesService(repo, fakeCategorias(true), fakeContas(true));
+    await service.criar('t1', { conta_id: 1, data_transacao: '2026-08-01', descricao_bruta: 'X', valor: -10 });
+    // 2026-08-01T12:00:00-03:00 deve virar 2026-08-01T15:00:00.000Z em ISO
+    expect(dadosCapturados.dataTransacao).toBe('2026-08-01T15:00:00.000Z');
+  });
+
   it('rejeita descrição vazia', async () => {
     const service = criarTransacoesService(fakeRepo(), fakeCategorias(true), fakeContas(true));
     await expect(
