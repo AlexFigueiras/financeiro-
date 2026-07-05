@@ -8,7 +8,10 @@ import { reconciliacaoService } from '../../reconciliacao';
 
 const upload = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 15 * 1024 * 1024 }, // PDF/foto de extrato pode ter alguns MB
+  // Vercel rejeita o corpo da requisição acima de 4.5 MB (FUNCTION_PAYLOAD_TOO_LARGE,
+  // antes mesmo do multer rodar) — o limite fica abaixo disso para o multer barrar
+  // primeiro, com uma mensagem tratada em vez do erro cru da plataforma.
+  limits: { fileSize: 4 * 1024 * 1024 },
 });
 
 export const extratoRouter = Router();

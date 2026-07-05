@@ -1,7 +1,7 @@
 import { CupomOcrPort } from '../ports/cupom-ocr-port';
 import { CupomRepository } from '../ports/cupom-repository';
 import { validarCupom, normalizarDataEmissao } from '../domain/validacao-cupom';
-import { ResultadoCupom } from '../types';
+import { DadosItemCupom, ResultadoCupom } from '../types';
 import { AppError } from '../../../shared/errors/app-error';
 import { publicar } from '../../../events/bus';
 
@@ -49,6 +49,46 @@ export function criarCupomService(ocr: CupomOcrPort, repo: CupomRepository) {
         throw new AppError(`A categoria "${categoriaChave}" não é válida.`, 400);
       }
       await repo.atualizarCategoriaItem(tenantId, itemId, categoriaChave);
+    },
+
+    /** Edição parcial: nome, quantidade, preço unitário e/ou valor total do item. */
+    async atualizarItem(
+      tenantId: string,
+      itemId: number,
+      corpo: { nome_produto?: unknown; quantidade?: unknown; preco_unitario?: unknown; valor_total?: unknown }
+    ): Promise<void> {
+      const dados: DadosItemCupom = {};
+
+      if (corpo.nome_produto !== undefined) {
+        if (typeof corpo.nome_produto !== 'string' || !corpo.nome_produto.trim()) {
+          throw new AppError('Nome do produto inválido.', 400);
+        }
+        dados.nomeProduto = corpo.nome_produto.trim();
+      }
+      if (corpo.quantidade !== undefined) {
+        const quantidade = Number(corpo.quantidade);
+        if (isNaN(quantidade) || quantidade <= 0) throw new AppError('Quantidade inválida (deve ser positiva).', 400);
+        dados.quantidade = quantidade;
+      }
+      if (corpo.preco_unitario !== undefined) {
+        const precoUnitario = Number(corpo.preco_unitario);
+        if (isNaN(precoUnitario) || precoUnitario < 0) throw new AppError('Preço unitário inválido.', 400);
+        dados.precoUnitario = Math.round(precoUnitario * 100) / 100;
+      }
+      if (corpo.valor_total !== undefined) {
+        const valorTotal = Number(corpo.valor_total);
+        if (isNaN(valorTotal) || valorTotal < 0) throw new AppError('Valor total inválido.', 400);
+        dados.valorTotal = Math.round(valorTotal * 100) / 100;
+      }
+
+      if (Object.keys(dados).length === 0) {
+        throw new AppError('Informe ao menos um campo para atualizar.', 400);
+      }
+      await repo.atualizarItem(tenantId, itemId, dados);
+    },
+
+    async excluirItem(tenantId: string, itemId: number): Promise<void> {
+      await repo.excluirItem(tenantId, itemId);
     },
   };
 }

@@ -16,6 +16,7 @@ export interface TransacaoListada {
   origem: string;
   cupom_id: number | null;
   categoria: string;
+  conta_id: number;
   conta_nome: string;
   estabelecimento: string | null;
   cupom_data_emissao: string | null;
@@ -34,4 +35,13 @@ export interface FiltroTransacoes {
   contaId?: number;
   pagina: number;
   limite: number;
+}
+
+/** Campos editáveis de um lançamento — usado tanto na criação manual quanto na edição parcial. */
+export interface DadosTransacao {
+  contaId: number;
+  dataTransacao: string; // ISO 8601
+  descricaoBruta: string;
+  valor: number;
+  categoria: string;
 }

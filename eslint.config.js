@@ -26,6 +26,7 @@ const BROWSER_GLOBALS = {
   console: 'readonly',
   Headers: 'readonly',
   localStorage: 'readonly',
+  confirm: 'readonly',
 };
 
 const SERVICE_WORKER_GLOBALS = {

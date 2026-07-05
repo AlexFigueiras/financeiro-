@@ -3,7 +3,7 @@ import { criarContasService } from '../services/contas-service';
 import { ContasRepository } from '../ports/contas-repository';
 import { ContaBancaria } from '../types';
 
-function fakeRepo(contas: ContaBancaria[] = []): ContasRepository {
+function fakeRepo(contas: ContaBancaria[] = [], transacoesPorConta: Record<number, number> = {}): ContasRepository {
   return {
     async listar() {
       return contas;
@@ -19,6 +19,21 @@ function fakeRepo(contas: ContaBancaria[] = []): ContasRepository {
     },
     async buscarIdPorNome(_tenantId, nome) {
       return contas.find((c) => c.nome === nome)?.id ?? null;
+    },
+    async atualizar(_tenantId, contaId, nome, tipo) {
+      if (contas.some((c) => c.nome === nome && c.id !== contaId)) return null;
+      const conta = contas.find((c) => c.id === contaId);
+      if (!conta) return null;
+      conta.nome = nome;
+      conta.tipo = tipo;
+      return conta;
+    },
+    async contarTransacoes(_tenantId, contaId) {
+      return transacoesPorConta[contaId] ?? 0;
+    },
+    async excluir(_tenantId, contaId) {
+      const idx = contas.findIndex((c) => c.id === contaId);
+      if (idx >= 0) contas.splice(idx, 1);
     },
   };
 }
@@ -73,5 +88,57 @@ describe('contasService.resolverContaId', () => {
   it('rejeita quando não há conta_id e o tenant não tem nenhuma conta', async () => {
     const service = criarContasService(fakeRepo());
     await expect(service.resolverContaId('t1', undefined)).rejects.toThrow('Nenhuma conta bancária cadastrada');
+  });
+});
+
+describe('contasService.atualizar', () => {
+  it('rejeita conta inexistente', async () => {
+    const service = criarContasService(fakeRepo());
+    await expect(service.atualizar('t1', 1, 'Novo Nome', 'corrente')).rejects.toMatchObject({ status: 404 });
+  });
+
+  it('rejeita nome ausente ou curto demais', async () => {
+    const service = criarContasService(fakeRepo([
+      { id: 1, nome: 'Banco X', tipo: 'corrente', saldoAtual: 0, atualizadoEm: '' },
+    ]));
+    await expect(service.atualizar('t1', 1, 'A', undefined)).rejects.toThrow('mínimo 2 caracteres');
+  });
+
+  it('atualiza nome e tipo quando válidos', async () => {
+    const service = criarContasService(fakeRepo([
+      { id: 1, nome: 'Banco X', tipo: 'corrente', saldoAtual: 0, atualizadoEm: '' },
+    ]));
+    const conta = await service.atualizar('t1', 1, 'Banco Y', 'poupanca');
+    expect(conta).toMatchObject({ nome: 'Banco Y', tipo: 'poupanca' });
+  });
+
+  it('rejeita novo nome que colide com outra conta do tenant', async () => {
+    const service = criarContasService(fakeRepo([
+      { id: 1, nome: 'Banco X', tipo: 'corrente', saldoAtual: 0, atualizadoEm: '' },
+      { id: 2, nome: 'Banco Y', tipo: 'corrente', saldoAtual: 0, atualizadoEm: '' },
+    ]));
+    await expect(service.atualizar('t1', 1, 'Banco Y', undefined)).rejects.toMatchObject({ status: 409 });
+  });
+});
+
+describe('contasService.excluir', () => {
+  it('rejeita conta inexistente', async () => {
+    const service = criarContasService(fakeRepo());
+    await expect(service.excluir('t1', 1)).rejects.toMatchObject({ status: 404 });
+  });
+
+  it('rejeita exclusão quando a conta tem transações vinculadas', async () => {
+    const service = criarContasService(fakeRepo(
+      [{ id: 1, nome: 'Banco X', tipo: 'corrente', saldoAtual: 0, atualizadoEm: '' }],
+      { 1: 3 }
+    ));
+    await expect(service.excluir('t1', 1)).rejects.toMatchObject({ status: 409 });
+  });
+
+  it('exclui quando não há transações vinculadas', async () => {
+    const contas = [{ id: 1, nome: 'Banco X', tipo: 'corrente' as const, saldoAtual: 0, atualizadoEm: '' }];
+    const service = criarContasService(fakeRepo(contas, { 1: 0 }));
+    await service.excluir('t1', 1);
+    expect(contas).toHaveLength(0);
   });
 });

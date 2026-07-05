@@ -8,12 +8,29 @@ import { env } from '../config/env';
 import { AppError } from '../errors/app-error';
 import { avisarModoSemAuth } from '../observability/logger';
 import { enriquecerContexto } from '../observability/tracing';
-import { verificarJwtHs256 } from './jwt';
+import { extrairAlgKid, PayloadJwt, verificarJwtEs256, verificarJwtHs256 } from './jwt';
+import { obterChavePublica } from './jwks';
 import './tipos-auth';
 
 const USUARIO_DEV = 'usuario-dev-local';
 
-export function authMiddleware(req: Request, _res: Response, next: NextFunction): void {
+/**
+ * O Supabase assina tokens com ES256 (JWT Signing Keys — projetos novos, chave
+ * pública via JWKS) ou HS256 (segredo compartilhado legado). Qualquer outro
+ * algoritmo é rejeitado.
+ */
+async function verificarToken(token: string): Promise<PayloadJwt> {
+  const { alg, kid } = extrairAlgKid(token);
+  if (alg === 'HS256') return verificarJwtHs256(token, env.supabaseJwtSecret);
+  if (alg === 'ES256') return verificarJwtEs256(token, await obterChavePublica(kid));
+  throw new AppError('Algoritmo de token não suportado.', 401);
+}
+
+export async function authMiddleware(
+  req: Request,
+  _res: Response,
+  next: NextFunction
+): Promise<void> {
   if (env.authMode === 'off') {
     avisarModoSemAuth();
     req.auth = { userId: USUARIO_DEV, email: null };
@@ -30,7 +47,7 @@ export function authMiddleware(req: Request, _res: Response, next: NextFunction)
   }
 
   try {
-    const payload = verificarJwtHs256(token, env.supabaseJwtSecret);
+    const payload = await verificarToken(token);
     req.auth = {
       userId: payload.sub,
       email: typeof payload.email === 'string' ? payload.email : null,

@@ -1,8 +1,18 @@
-import { Pool, PoolClient, QueryResult, QueryResultRow } from 'pg';
+import { Pool, PoolClient, QueryResult, QueryResultRow, types } from 'pg';
 import { env } from '../../shared/config/env';
 import { loggerDe } from '../../shared/observability/logger';
 
 const log = loggerDe('db');
+
+/**
+ * OID 20 = BIGINT. O driver `pg` devolve BIGINT como string por padrão (evita
+ * perda de precisão acima de Number.MAX_SAFE_INTEGER). Nossas colunas BIGINT
+ * são só IDs autoincrementados (GENERATED ALWAYS AS IDENTITY), bem abaixo desse
+ * teto — sem este parser, um id "número" vira string em runtime apesar do tipo
+ * TypeScript dizer `number`, quebrando validação Zod de eventos e comparações
+ * downstream (ver docs/DECISIONS.md).
+ */
+types.setTypeParser(20, (val) => parseInt(val, 10));
 
 /**
  * Pool preguiçoso: só é criado na PRIMEIRA query, nunca no import do módulo.

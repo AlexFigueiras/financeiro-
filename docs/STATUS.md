@@ -6,7 +6,7 @@
 
 | Feature / fluxo | Estado | Onde (código) | Notas / decisão |
 |---|---|---|---|
-| Cadastro/login (Supabase Auth) | ✅ | `public/auth.js`, `public/login-ui.js`, `src/shared/security/auth-middleware.ts` | JWT HS256 verificado sem SDK externo. Tela de login em `public/index.html`. |
+| Cadastro/login (Supabase Auth) | ✅ | `public/auth.js`, `public/login-ui.js`, `src/shared/security/auth-middleware.ts`, `src/shared/security/jwks.ts` | JWT ES256 (signing keys, via JWKS) e HS256 legado verificados sem SDK externo. Tela de login em `public/index.html`. |
 | Self-service signup (tenant automático) | ✅ | `src/domains/tenancy/`, evento `tenant.criado.v1` | Primeiro login sem tenant provisiona um novo automaticamente. |
 | Isolamento multi-tenant (RLS) | ✅ | `infra/db/migrations/0002_multi_tenant_rls.sql` | `tenant_id` em toda tabela + policy dupla (app + `auth.uid()`). |
 | Convite de múltiplos membros por tenant | 🟡 | `tenant_members` (schema pronto) | Schema suporta `papel` (owner/member); **sem rota/UI de convite ainda**. |
@@ -16,7 +16,9 @@
 | Motor de reconciliação (match cupom↔transação) | ✅ | `infra/db/migrations/*.sql` (`fn_reconciliar`), `src/domains/reconciliacao/` | Valor exato + janela de 48h, 1:1 garantido por índice único. |
 | Categorização manual + aprendida | ✅ | `src/domains/transacoes/`, `src/domains/cupons/` | Regra aprendida por tenant em `regras_categorizacao`. |
 | Dashboard (KPIs, gráficos, tabela) | ✅ | `src/domains/dashboard/`, `public/charts.js` | Sem paginação de gráfico por período customizado (só mês). |
-| CRUD de contas bancárias | 🟡 | `src/domains/contas/` | Só criar/listar — sem editar ou excluir conta. |
+| CRUD de transações (lançamentos) | ✅ | `src/domains/transacoes/`, `public/transacao-form.js`, `public/transacoes-tabela.js` | Criar manual, editar (data/valor/descrição/conta/categoria) e excluir. Editar data/valor de transação reconciliada desvincula o cupom. |
+| CRUD de contas bancárias | ✅ | `src/domains/contas/`, `public/contas-ui.js` | Criar/listar/editar/excluir com UI (modal "+ Conta" com lista). Exclusão bloqueada (409) se a conta tiver transações vinculadas. |
+| CRUD de itens de cupom fiscal | ✅ | `src/domains/cupons/`, `public/item-cupom-form.js` | Editar nome/quantidade/preço unitário e excluir item; `cupons_fiscais.valor_total` é recalculado a cada mudança. |
 | Cron de reconciliação periódica | 🟡 | `src/index.ts` | Só roda em `AUTH_MODE=off` (servidor tradicional single-tenant dev). Em produção multi-tenant, reconciliação dispara só por upload — sem varredura periódica por tenant ainda. |
 | Cobrança/assinatura (billing) | ⬜ | — | Produto hoje não cobra; nenhuma integração de pagamento. |
 | PWA instalável | ✅ | `public/manifest.webmanifest`, `public/sw.js`, `docs/pwa-play-store.md` | Inclui guia para publicação como app na Play Store (TWA). |

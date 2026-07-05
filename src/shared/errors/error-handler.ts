@@ -1,4 +1,5 @@
 import { NextFunction, Request, Response } from 'express';
+import { MulterError } from 'multer';
 import { AppError } from './app-error';
 import { logger } from '../observability/logger';
 import { incrementar } from '../observability/metrics';
@@ -12,6 +13,14 @@ export function errorHandler(
   if (err instanceof AppError) {
     incrementar('http_erros_total', { status: String(err.status) });
     res.status(err.status).json({ erro: err.message, detalhes: err.details ?? null });
+    return;
+  }
+  if (err instanceof MulterError) {
+    const status = err.code === 'LIMIT_FILE_SIZE' ? 413 : 400;
+    const mensagem =
+      err.code === 'LIMIT_FILE_SIZE' ? 'Arquivo muito grande. Envie um arquivo de até 4 MB.' : err.message;
+    incrementar('http_erros_total', { status: String(status) });
+    res.status(status).json({ erro: mensagem, detalhes: null });
     return;
   }
   // Violação de unicidade do Postgres (ex.: hash_ofx duplicado fora do fluxo normal)

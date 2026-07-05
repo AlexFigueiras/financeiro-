@@ -19,13 +19,38 @@ const CATEGORIAS_PADRAO: Array<{ chave: string; nome: string; cor: string }> = [
   { chave: 'outros', nome: 'Outros', cor: '#898781' },
 ];
 
-/** Popula o catálogo padrão de categorias para um tenant novo. Idempotente. */
+const REGRAS_PADRAO: Array<{ termo: string; categoria_chave: string }> = [
+  { termo: 'mercado', categoria_chave: 'alimentacao' },
+  { termo: 'supermercado', categoria_chave: 'alimentacao' },
+  { termo: 'padaria', categoria_chave: 'padaria' },
+  { termo: 'panificadora', categoria_chave: 'padaria' },
+  { termo: 'posto', categoria_chave: 'combustivel' },
+  { termo: 'combustivel', categoria_chave: 'combustivel' },
+  { termo: 'uber', categoria_chave: 'transporte' },
+  { termo: 'taxi', categoria_chave: 'transporte' },
+  { termo: 'farmacia', categoria_chave: 'farmacia' },
+  { termo: 'drogaria', categoria_chave: 'farmacia' },
+  { termo: 'netflix', categoria_chave: 'lazer' },
+  { termo: 'spotify', categoria_chave: 'lazer' },
+  { termo: 'aluguel', categoria_chave: 'moradia' },
+  { termo: 'energia', categoria_chave: 'moradia' },
+  { termo: 'saneamento', categoria_chave: 'moradia' },
+];
+
+/** Popula o catálogo padrão de categorias e regras iniciais para um tenant novo. Idempotente. */
 export async function seedCategoriasPadrao(tenantId: string): Promise<void> {
   for (const c of CATEGORIAS_PADRAO) {
     await pool.query(
       `INSERT INTO categorias (tenant_id, chave, nome, cor) VALUES ($1, $2, $3, $4)
        ON CONFLICT (tenant_id, chave) DO NOTHING`,
       [tenantId, c.chave, c.nome, c.cor]
+    );
+  }
+  for (const r of REGRAS_PADRAO) {
+    await pool.query(
+      `INSERT INTO regras_categorizacao (tenant_id, termo, categoria_chave) VALUES ($1, $2, $3)
+       ON CONFLICT (tenant_id, termo) DO NOTHING`,
+      [tenantId, r.termo, r.categoria_chave]
     );
   }
 }

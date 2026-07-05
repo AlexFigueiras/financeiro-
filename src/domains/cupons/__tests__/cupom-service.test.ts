@@ -21,6 +21,8 @@ function fakeRepo(overrides: Partial<CupomRepository> = {}): CupomRepository {
     async buscarComItens() { return null; },
     async atualizarCategoriaItem() {},
     async categoriaExiste() { return true; },
+    async atualizarItem() {},
+    async excluirItem() {},
     ...overrides,
   };
 }
@@ -61,5 +63,46 @@ describe('cupomService.atualizarCategoriaItem', () => {
   it('rejeita categoria que não existe no tenant', async () => {
     const service = criarCupomService(fakeOcr(), fakeRepo({ async categoriaExiste() { return false; } }));
     await expect(service.atualizarCategoriaItem('11111111-1111-4111-8111-111111111111', 1, 'inexistente')).rejects.toThrow('não é válida');
+  });
+});
+
+describe('cupomService.atualizarItem', () => {
+  const TENANT = '11111111-1111-4111-8111-111111111111';
+
+  it('rejeita quando nenhum campo é informado', async () => {
+    const service = criarCupomService(fakeOcr(), fakeRepo());
+    await expect(service.atualizarItem(TENANT, 1, {})).rejects.toThrow('ao menos um campo');
+  });
+
+  it('rejeita nome vazio', async () => {
+    const service = criarCupomService(fakeOcr(), fakeRepo());
+    await expect(service.atualizarItem(TENANT, 1, { nome_produto: '  ' })).rejects.toThrow('Nome do produto inválido');
+  });
+
+  it('rejeita quantidade não positiva', async () => {
+    const service = criarCupomService(fakeOcr(), fakeRepo());
+    await expect(service.atualizarItem(TENANT, 1, { quantidade: 0 })).rejects.toThrow('Quantidade inválida');
+  });
+
+  it('rejeita preço unitário negativo', async () => {
+    const service = criarCupomService(fakeOcr(), fakeRepo());
+    await expect(service.atualizarItem(TENANT, 1, { preco_unitario: -1 })).rejects.toThrow('Preço unitário inválido');
+  });
+
+  it('aplica os campos válidos', async () => {
+    let dadosCapturados: unknown;
+    const repo = fakeRepo({ async atualizarItem(_t, _id, dados) { dadosCapturados = dados; } });
+    const service = criarCupomService(fakeOcr(), repo);
+    await service.atualizarItem(TENANT, 1, { nome_produto: 'Feijão', quantidade: 2, preco_unitario: 8.5 });
+    expect(dadosCapturados).toEqual({ nomeProduto: 'Feijão', quantidade: 2, precoUnitario: 8.5 });
+  });
+});
+
+describe('cupomService.excluirItem', () => {
+  it('delega ao repositório', async () => {
+    let chamou = false;
+    const service = criarCupomService(fakeOcr(), fakeRepo({ async excluirItem() { chamou = true; } }));
+    await service.excluirItem('11111111-1111-4111-8111-111111111111', 1);
+    expect(chamou).toBe(true);
   });
 });

@@ -38,3 +38,11 @@ export interface CupomComItens {
   estabelecimento: string;
   itens: ItemCupom[];
 }
+
+/** Campos editáveis de um item de cupom — edição parcial (nunca inclui categoria, que tem fluxo próprio). */
+export interface DadosItemCupom {
+  nomeProduto?: string;
+  quantidade?: number;
+  precoUnitario?: number;
+  valorTotal?: number;
+}

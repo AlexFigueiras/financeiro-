@@ -7,16 +7,8 @@
     location.hostname.endsWith('github.io') || new URLSearchParams(location.search).has('demo');
 
   const fmtBRL = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
-  const fmtQtd = new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 3 });
-  const fmtData = new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short', timeZone: 'America/Sao_Paulo' });
-  const fmtDataHora = new Intl.DateTimeFormat('pt-BR', {
-    dateStyle: 'short',
-    timeStyle: 'medium',
-    timeZone: 'America/Sao_Paulo'
-  });
 
   let listaCategorias = [];
-  const transacoesColapsadas = new Set();
 
   const $ = (id) => document.getElementById(id);
 
@@ -113,143 +105,6 @@
     window.Charts.renderCategorias($('grafico-categorias'), $('legenda-categorias'), r);
   }
 
-  // ---- Tabela de transações ----------------------------------------------------
-  function linhaItensCupom(transacao) {
-    const tr = document.createElement('tr');
-    tr.className = 'linha-itens';
-    tr.hidden = transacoesColapsadas.has(transacao.id);
-    const td = document.createElement('td');
-    td.colSpan = 5;
-
-    const wrap = document.createElement('div');
-    wrap.className = 'itens-wrap';
-    const titulo = document.createElement('div');
-    titulo.className = 'itens-titulo';
-    titulo.textContent = `Cupom fiscal — ${transacao.estabelecimento ?? ''} · emissão ${
-      transacao.cupom_data_emissao ? fmtDataHora.format(new Date(transacao.cupom_data_emissao)) : '—'
-    }`;
-
-    const tabela = document.createElement('table');
-    tabela.className = 'tabela-itens';
-    tabela.innerHTML =
-      '<thead><tr><th>Produto</th><th>Qtd</th><th>Unitário</th><th>Subtotal</th><th>Categoria</th></tr></thead>';
-    const corpo = document.createElement('tbody');
-    for (const item of transacao.itens_cupom ?? []) {
-      const linha = document.createElement('tr');
-      const celulas = [
-        item.nome_produto,
-        fmtQtd.format(Number(item.quantidade)),
-        fmtBRL.format(Number(item.preco_unitario)),
-        fmtBRL.format(Number(item.valor_total)),
-      ];
-      for (const texto of celulas) {
-        const c = document.createElement('td');
-        c.textContent = texto;
-        linha.appendChild(c);
-      }
-      const cCat = document.createElement('td');
-      cCat.appendChild(
-        window.criarSelectCategoria({
-          categorias: listaCategorias,
-          categoriaAtual: item.categoria,
-          aoSalvar: async (novaCategoria) => {
-            const res = await chamarApi(`/api/cupons/itens/${item.id}/categoria`, {
-              method: 'PATCH',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ categoria: novaCategoria }),
-            });
-            mostrarFeedback(res.mensagem, 'sucesso');
-            await atualizarTudo();
-          },
-        })
-      );
-      linha.appendChild(cCat);
-      corpo.appendChild(linha);
-    }
-    tabela.appendChild(corpo);
-    wrap.append(titulo, tabela);
-    td.appendChild(wrap);
-    tr.appendChild(td);
-    return tr;
-  }
-
-  async function carregarTransacoes() {
-    const corpo = $('corpo-transacoes');
-    const r = await chamarApi(`/api/transacoes?mes=${mesSelecionado()}&limite=200`);
-    corpo.innerHTML = '';
-    $('contagem-transacoes').textContent = `${r.total} registro(s)`;
-
-    if (r.transacoes.length === 0) {
-      corpo.innerHTML = '<tr><td colspan="5" class="celula-vazia">Nenhuma transação no período. Envie um extrato OFX da Caixa.</td></tr>';
-      return;
-    }
-
-    for (const t of r.transacoes) {
-      const tr = document.createElement('tr');
-      const temCupom = t.cupom_id !== null;
-      tr.className = `linha-transacao${temCupom ? ' expansivel' : ''}`;
-
-      const valor = Number(t.valor);
-      const tdData = document.createElement('td');
-      tdData.textContent = fmtData.format(new Date(t.data_transacao));
-      const tdConta = document.createElement('td');
-      const badgeConta = document.createElement('span');
-      badgeConta.className = 'badge badge-origem';
-      badgeConta.textContent = t.conta_nome;
-      tdConta.appendChild(badgeConta);
-      const tdDesc = document.createElement('td');
-      tdDesc.textContent = t.descricao_bruta;
-      const tdStatus = document.createElement('td');
-      if (temCupom) {
-        const badge = document.createElement('span');
-        badge.className = 'badge badge-detalhado';
-        badge.textContent = '🧾 Detalhado ▾';
-        badge.title = 'Transação reconciliada com cupom fiscal — clique para ver os itens';
-        tdStatus.appendChild(badge);
-      } else if (valor < 0) {
-        // Dropdown de categoria para despesas não reconciliadas
-        tdStatus.appendChild(
-          window.criarSelectCategoria({
-            categorias: listaCategorias,
-            categoriaAtual: t.categoria,
-            aoSalvar: async (novaCategoria) => {
-              const res = await chamarApi(`/api/transacoes/${t.id}/categoria`, {
-                method: 'PATCH',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ categoria: novaCategoria }),
-              });
-              mostrarFeedback(res.mensagem, 'sucesso');
-              await atualizarTudo();
-            },
-          })
-        );
-      } else {
-        tdStatus.innerHTML = '<span class="painel-sub">—</span>';
-      }
-      const tdValor = document.createElement('td');
-      tdValor.className = `col-valor ${valor >= 0 ? 'valor-entrada' : 'valor-saida'}`;
-      tdValor.textContent = fmtBRL.format(valor);
-
-      tr.append(tdData, tdConta, tdDesc, tdStatus, tdValor);
-      corpo.appendChild(tr);
-
-      if (temCupom) {
-        const linhaItens = linhaItensCupom(t);
-        corpo.appendChild(linhaItens);
-
-        tr.addEventListener('click', () => {
-          const oculto = !linhaItens.hidden;
-          linhaItens.hidden = oculto;
-          if (oculto) {
-            transacoesColapsadas.add(t.id);
-          } else {
-            transacoesColapsadas.delete(t.id);
-          }
-        });
-      }
-    }
-  }
-
   // ---- Uploads (dropzones) --------------------------------------------------------
   function configurarDropzone(idZona, idInput, url, nomeAmigavel) {
     const zona = $(idZona);
@@ -301,7 +156,12 @@
 
   // ---- Orquestração --------------------------------------------------------------------
   async function atualizarTudo() {
-    const tarefas = [carregarKpis(), carregarFluxoDiario(), carregarCategorias(), carregarTransacoes()];
+    const tarefas = [
+      carregarKpis(),
+      carregarFluxoDiario(),
+      carregarCategorias(),
+      window.TransacoesTabela.renderizar(mesSelecionado()),
+    ];
     const resultados = await Promise.allSettled(tarefas);
     const falhas = resultados.filter((r) => r.status === 'rejected');
     if (falhas.length > 0) {
@@ -315,7 +175,37 @@
     $('seletor-mes').addEventListener('change', atualizarTudo);
     configurarDropzone('dropzone-ofx', 'input-ofx', '/api/extrato/upload-ofx', 'Extrato OFX');
     configurarDropzone('dropzone-cupom', 'input-cupom', '/api/cupons/upload', 'Cupom fiscal');
-    window.LoginUI.configurarLogin(() => carregarCategoriasMenu().then(() => atualizarTudo()));
+    window.ContasUI.configurarContas(chamarApi, atualizarTudo);
+    window.TransacaoForm.configurar(chamarApi, atualizarTudo);
+    window.ItemCupomForm.configurar(chamarApi, atualizarTudo);
+    window.TransacoesTabela.configurar({
+      chamarApi,
+      mostrarFeedback,
+      atualizarTudo,
+      getCategorias: () => listaCategorias,
+    });
+    $('btn-novo-lancamento').addEventListener('click', () => window.TransacaoForm.abrirCriacao(chamarApi, listaCategorias));
+    $('btn-recategorizar').addEventListener('click', async () => {
+      const btn = $('btn-recategorizar');
+      btn.disabled = true;
+      const textoOriginal = btn.textContent;
+      btn.textContent = 'Categorizando...';
+      try {
+        const r = await chamarApi('/api/transacoes/recategorizar-tudo', { method: 'POST' });
+        mostrarFeedback(r.mensagem, 'sucesso');
+        await atualizarTudo();
+      } catch (erro) {
+        mostrarFeedback(`Erro ao categorizar: ${erro.message}`, 'erro');
+      } finally {
+        btn.disabled = false;
+        btn.textContent = textoOriginal;
+      }
+    });
+    window.LoginUI.configurarLogin(() =>
+      carregarCategoriasMenu()
+        .then(() => atualizarTudo())
+        .then(() => window.ContasUI.garantirConta(chamarApi))
+    );
     // Redesenha os gráficos quando o SO alterna claro/escuro (tokens mudam)
     window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', atualizarTudo);
 
@@ -336,7 +226,9 @@
     if (config.authMode === 'off' || (await window.Auth.tokenValido())) {
       window.LoginUI.mostrarApp();
       $('btn-sair').hidden = config.authMode === 'off';
-      carregarCategoriasMenu().then(() => atualizarTudo());
+      carregarCategoriasMenu()
+        .then(() => atualizarTudo())
+        .then(() => window.ContasUI.garantirConta(chamarApi));
     } else {
       window.LoginUI.mostrarTelaLogin();
     }

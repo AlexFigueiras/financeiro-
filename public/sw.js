@@ -1,6 +1,6 @@
 // Service worker: caches only the static app shell. All /api/* calls always
 // go to the network — financial data must never be served stale from cache.
-const CACHE_VERSION = "financeiro-shell-v2";
+const CACHE_VERSION = "financeiro-shell-v3";
 const SHELL_ASSETS = [
   "/",
   "/index.html",
@@ -50,18 +50,18 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
+  // Network-first: um deploy novo (CSS/JS) deve aparecer no primeiro load, não só
+  // depois de um refresh manual. O cache só serve de fallback, se a rede falhar
+  // (offline) — nunca é servido "na frente" da rede como estava antes (v2).
   event.respondWith(
-    caches.match(request).then((cached) => {
-      const network = fetch(request)
-        .then((response) => {
-          if (response.ok) {
-            const copy = response.clone();
-            caches.open(CACHE_VERSION).then((cache) => cache.put(request, copy));
-          }
-          return response;
-        })
-        .catch(() => cached);
-      return cached || network;
-    })
+    fetch(request)
+      .then((response) => {
+        if (response.ok) {
+          const copy = response.clone();
+          caches.open(CACHE_VERSION).then((cache) => cache.put(request, copy));
+        }
+        return response;
+      })
+      .catch(() => caches.match(request))
   );
 });

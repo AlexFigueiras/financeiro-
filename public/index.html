@@ -32,13 +32,83 @@
     </form>
   </div>
 
+  <div id="modal-conta" class="modal-overlay" hidden>
+    <div class="painel modal-card">
+      <h2>Contas bancárias</h2>
+      <p id="modal-conta-intro" class="painel-sub" hidden>
+        Crie sua primeira conta bancária para importar extratos e cupons.
+      </p>
+      <ul id="lista-contas" class="lista-contas"></ul>
+      <form id="form-conta" aria-label="Nova conta bancária">
+        <input type="hidden" id="conta-id">
+        <label for="conta-nome">Nome</label>
+        <input type="text" id="conta-nome" required minlength="2" placeholder="Ex.: Caixa Econômica">
+        <label for="conta-tipo">Tipo</label>
+        <select id="conta-tipo">
+          <option value="corrente">Conta corrente</option>
+          <option value="poupanca">Poupança</option>
+          <option value="pagamento">Conta de pagamento</option>
+          <option value="carteira_digital">Carteira digital</option>
+          <option value="outro">Outro</option>
+        </select>
+        <div id="conta-erro" class="feedback erro" role="alert" hidden></div>
+        <div class="modal-acoes">
+          <button type="submit" id="btn-salvar-conta">Salvar</button>
+          <button type="button" id="btn-cancelar-conta">Fechar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div id="modal-transacao" class="modal-overlay" hidden>
+    <form id="form-transacao" class="painel modal-card" aria-label="Lançamento">
+      <h2 id="modal-transacao-titulo">Novo lançamento</h2>
+      <input type="hidden" id="transacao-id">
+      <label for="transacao-data">Data</label>
+      <input type="date" id="transacao-data" required>
+      <label for="transacao-conta">Conta</label>
+      <select id="transacao-conta" required></select>
+      <label for="transacao-descricao">Descrição</label>
+      <input type="text" id="transacao-descricao" required placeholder="Ex.: Supermercado">
+      <label for="transacao-valor">Valor (negativo = saída, positivo = entrada)</label>
+      <input type="number" id="transacao-valor" step="0.01" required placeholder="Ex.: -150.00">
+      <label for="transacao-categoria">Categoria</label>
+      <select id="transacao-categoria"></select>
+      <div id="transacao-erro" class="feedback erro" role="alert" hidden></div>
+      <div class="modal-acoes">
+        <button type="submit" id="btn-salvar-transacao">Salvar</button>
+        <button type="button" id="btn-cancelar-transacao">Cancelar</button>
+      </div>
+    </form>
+  </div>
+
+  <div id="modal-item-cupom" class="modal-overlay" hidden>
+    <form id="form-item-cupom" class="painel modal-card" aria-label="Item do cupom">
+      <h2>Editar item</h2>
+      <input type="hidden" id="item-cupom-id">
+      <label for="item-cupom-nome">Produto</label>
+      <input type="text" id="item-cupom-nome" required placeholder="Ex.: Arroz 5kg">
+      <label for="item-cupom-quantidade">Quantidade</label>
+      <input type="number" id="item-cupom-quantidade" step="0.001" min="0.001" required>
+      <label for="item-cupom-preco">Preço unitário (R$)</label>
+      <input type="number" id="item-cupom-preco" step="0.01" min="0" required>
+      <div id="item-cupom-erro" class="feedback erro" role="alert" hidden></div>
+      <div class="modal-acoes">
+        <button type="submit" id="btn-salvar-item-cupom">Salvar</button>
+        <button type="button" id="btn-cancelar-item-cupom">Cancelar</button>
+      </div>
+    </form>
+  </div>
+
   <div id="app-shell" hidden>
   <header class="topbar">
     <div class="topbar-inner">
       <h1>Painel Financeiro</h1>
       <div class="topbar-controls">
+        <button type="button" id="btn-recategorizar" class="btn-recategorizar" title="Categoriza os lançamentos atuais com base nas regras aprendidas e padrão">Categorizar Lançamentos</button>
         <label for="seletor-mes" class="visually-hidden">Mês de referência</label>
         <input type="month" id="seletor-mes" class="mes-input">
+        <button type="button" id="btn-nova-conta" class="btn btn-secundario">+ Conta</button>
         <button type="button" id="btn-sair" class="btn-sair" hidden>Sair</button>
       </div>
     </div>
@@ -107,6 +177,7 @@
       <div class="painel-cabecalho">
         <h2>Transações <span class="painel-sub">Caixa Econômica</span></h2>
         <span id="contagem-transacoes" class="painel-sub"></span>
+        <button type="button" id="btn-novo-lancamento" class="btn btn-secundario">+ Lançamento</button>
       </div>
       <div class="tabela-scroll">
         <table class="tabela-transacoes" id="tabela-transacoes">
@@ -117,10 +188,11 @@
               <th scope="col">Descrição</th>
               <th scope="col" class="col-status">Detalhe</th>
               <th scope="col" class="col-valor">Valor (R$)</th>
+              <th scope="col" class="col-acoes">Ações</th>
             </tr>
           </thead>
           <tbody id="corpo-transacoes">
-            <tr><td colspan="5" class="celula-vazia">Carregando…</td></tr>
+            <tr><td colspan="6" class="celula-vazia">Carregando…</td></tr>
           </tbody>
         </table>
       </div>
@@ -132,6 +204,10 @@
   <script src="demo-data.js"></script>
   <script src="auth.js"></script>
   <script src="login-ui.js"></script>
+  <script src="contas-ui.js"></script>
+  <script src="transacao-form.js"></script>
+  <script src="item-cupom-form.js"></script>
+  <script src="transacoes-tabela.js"></script>
   <script src="charts.js"></script>
   <script src="categoria-select.js"></script>
   <script src="app.js"></script>

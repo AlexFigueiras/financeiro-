@@ -54,9 +54,10 @@ export async function requisitarGeminiJson<T>(
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
-        // 55s: precisa retornar antes do limite de 60s da função no Vercel,
-        // para virar um erro tratado em vez de a função ser morta (504).
-        signal: AbortSignal.timeout(55_000),
+        // 110s: precisa retornar antes do limite de 120s da função no Vercel
+        // (vercel.json), para virar um erro tratado em vez de a função ser
+        // morta pela plataforma (504 sem corpo JSON, sem mensagem para o usuário).
+        signal: AbortSignal.timeout(110_000),
       }
     );
   } catch (err) {

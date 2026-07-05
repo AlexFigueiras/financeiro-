@@ -1,7 +1,19 @@
+import { PoolClient } from 'pg';
 import { pool, withTenantTransaction } from '../../../infra/db/pool';
 import { AppError } from '../../../shared/errors/app-error';
 import { CupomRepository } from '../ports/cupom-repository';
-import { CupomComItens } from '../types';
+import { CupomComItens, DadosItemCupom } from '../types';
+
+/** Mantém cupons_fiscais.valor_total = soma dos itens após qualquer edição/exclusão de item. */
+async function recalcularTotalCupom(client: PoolClient, tenantId: string, cupomId: number): Promise<void> {
+  await client.query(
+    `UPDATE cupons_fiscais
+        SET valor_total = COALESCE(
+              (SELECT SUM(valor_total) FROM itens_cupom WHERE cupom_id = $1 AND tenant_id = $2), 0)
+      WHERE id = $1 AND tenant_id = $2`,
+    [cupomId, tenantId]
+  );
+}
 
 export const cupomRepositoryPg: CupomRepository = {
   async salvar(tenantId, dados, dataEmissaoIso) {
@@ -99,6 +111,60 @@ export const cupomRepositoryPg: CupomRepository = {
         'UPDATE itens_cupom SET categoria = $1 WHERE tenant_id = $2 AND LOWER(nome_produto) = $3',
         [categoriaChave, tenantId, nomeProdutoLower]
       );
+    });
+  },
+
+  async atualizarItem(tenantId, itemId, dados: DadosItemCupom) {
+    await withTenantTransaction(tenantId, async (client) => {
+      const atual = await client.query<{ cupom_id: number; quantidade: string; preco_unitario: string }>(
+        'SELECT cupom_id, quantidade, preco_unitario FROM itens_cupom WHERE id = $1 AND tenant_id = $2',
+        [itemId, tenantId]
+      );
+      if (atual.rowCount === 0) throw new AppError('Item de cupom não encontrado.', 404);
+      const { cupom_id: cupomId } = atual.rows[0];
+
+      const quantidade = dados.quantidade ?? Number(atual.rows[0].quantidade);
+      const precoUnitario = dados.precoUnitario ?? Number(atual.rows[0].preco_unitario);
+      // Se o valor total não veio explícito mas qtd/preço mudou, recalcula a partir deles.
+      const valorTotal =
+        dados.valorTotal ??
+        (dados.quantidade !== undefined || dados.precoUnitario !== undefined
+          ? Math.round(quantidade * precoUnitario * 100) / 100
+          : undefined);
+
+      const sets: string[] = [];
+      const params: unknown[] = [];
+      const add = (coluna: string, valor: unknown) => {
+        params.push(valor);
+        sets.push(`${coluna} = $${params.length}`);
+      };
+      if (dados.nomeProduto !== undefined) add('nome_produto', dados.nomeProduto);
+      if (dados.quantidade !== undefined) add('quantidade', dados.quantidade);
+      if (dados.precoUnitario !== undefined) add('preco_unitario', dados.precoUnitario);
+      if (valorTotal !== undefined) add('valor_total', valorTotal);
+
+      if (sets.length > 0) {
+        params.push(itemId, tenantId);
+        await client.query(
+          `UPDATE itens_cupom SET ${sets.join(', ')} WHERE id = $${params.length - 1} AND tenant_id = $${params.length}`,
+          params
+        );
+      }
+      await recalcularTotalCupom(client, tenantId, cupomId);
+    });
+  },
+
+  async excluirItem(tenantId, itemId) {
+    await withTenantTransaction(tenantId, async (client) => {
+      const atual = await client.query<{ cupom_id: number }>(
+        'SELECT cupom_id FROM itens_cupom WHERE id = $1 AND tenant_id = $2',
+        [itemId, tenantId]
+      );
+      if (atual.rowCount === 0) throw new AppError('Item de cupom não encontrado.', 404);
+      const { cupom_id: cupomId } = atual.rows[0];
+
+      await client.query('DELETE FROM itens_cupom WHERE id = $1 AND tenant_id = $2', [itemId, tenantId]);
+      await recalcularTotalCupom(client, tenantId, cupomId);
     });
   },
 };

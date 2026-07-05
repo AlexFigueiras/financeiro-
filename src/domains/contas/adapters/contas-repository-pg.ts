@@ -66,4 +66,35 @@ export const contasRepositoryPg: ContasRepository = {
     );
     return rows[0]?.id ?? null;
   },
+
+  async atualizar(tenantId, contaId, nome, tipo) {
+    return withTenantTransaction(tenantId, async (client) => {
+      try {
+        const { rows } = await client.query(
+          `UPDATE contas_bancarias SET nome = $1, tipo = $2, atualizado_em = now()
+            WHERE id = $3 AND tenant_id = $4
+           RETURNING id, nome, tipo, saldo_atual, atualizado_em`,
+          [nome, tipo, contaId, tenantId]
+        );
+        return rows.length > 0 ? paraDominio(rows[0]) : null;
+      } catch (err) {
+        if (typeof err === 'object' && err !== null && (err as { code?: string }).code === '23505') {
+          return null; // nome duplicado no tenant (uq_contas_tenant_nome)
+        }
+        throw err;
+      }
+    });
+  },
+
+  async contarTransacoes(tenantId, contaId) {
+    const { rows } = await pool.query<{ total: number }>(
+      'SELECT COUNT(*)::int AS total FROM transacoes_banco WHERE conta_id = $1 AND tenant_id = $2',
+      [contaId, tenantId]
+    );
+    return rows[0]?.total ?? 0;
+  },
+
+  async excluir(tenantId, contaId) {
+    await pool.query('DELETE FROM contas_bancarias WHERE id = $1 AND tenant_id = $2', [contaId, tenantId]);
+  },
 };

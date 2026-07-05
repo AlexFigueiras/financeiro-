@@ -8,7 +8,10 @@ import { categoriasService } from '../../categorias';
 
 const upload = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 15 * 1024 * 1024 }, // fotos de celular chegam a alguns MB
+  // Vercel rejeita o corpo da requisição acima de 4.5 MB (FUNCTION_PAYLOAD_TOO_LARGE,
+  // antes mesmo do multer rodar) — o limite fica abaixo disso para o multer barrar
+  // primeiro, com uma mensagem tratada em vez do erro cru da plataforma.
+  limits: { fileSize: 4 * 1024 * 1024 },
 });
 
 export const cuponsRouter = Router();
@@ -29,6 +32,28 @@ cuponsRouter.patch(
     if (isNaN(id)) throw new AppError('ID de item inválido.', 400);
     await cupomService.atualizarCategoriaItem(req.tenantId!, id, req.body?.categoria);
     res.json({ mensagem: 'Categoria atualizada com sucesso e aprendida para compras futuras.' });
+  })
+);
+
+/** PATCH /api/cupons/itens/:id — edita nome/quantidade/preço/valor de um item de cupom. */
+cuponsRouter.patch(
+  '/itens/:id',
+  asyncHandler(async (req, res) => {
+    const id = parseInt(req.params.id, 10);
+    if (isNaN(id)) throw new AppError('ID de item inválido.', 400);
+    await cupomService.atualizarItem(req.tenantId!, id, req.body ?? {});
+    res.json({ mensagem: 'Item atualizado com sucesso.' });
+  })
+);
+
+/** DELETE /api/cupons/itens/:id — exclui um item de cupom. */
+cuponsRouter.delete(
+  '/itens/:id',
+  asyncHandler(async (req, res) => {
+    const id = parseInt(req.params.id, 10);
+    if (isNaN(id)) throw new AppError('ID de item inválido.', 400);
+    await cupomService.excluirItem(req.tenantId!, id);
+    res.json({ mensagem: 'Item excluído com sucesso.' });
   })
 );
 
