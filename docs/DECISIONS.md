@@ -5,6 +5,17 @@
 
 ---
 
+## [2026-07-05] Categorização em lote e regras padrão de semente (seed)
+
+- **Status:** accepted
+- **Contexto:** o banco remoto iniciava vazio sem nenhuma regra de categorização, fazendo com que as transações de extratos novos caíssem sempre na categoria 'outros' até o usuário recategorizar manualmente termo por termo. Além disso, o usuário queria uma forma de rodar a categorização retroativa em lote para testar.
+- **Decisão:**
+  - **Categorização em lote:** Adicionado o endpoint `POST /api/transacoes/recategorizar-tudo` no domínio `transacoes`, mapeado para o método `recategorizarTodas(tenantId)` que executa um update em lote no banco buscando por descrição parcial (case-insensitive `LIKE`).
+  - **Seed de regras padrão:** Adicionado um catálogo de termos comuns (`REGRAS_PADRAO`, ex: mercado, uber, posto, netflix) ao método `seedCategoriasPadrao` no domínio `categorias` (`src/domains/categorias/adapters/categorias-seed.ts`).
+  - **Idempotência no fluxo:** O método `recategorizarTodas` roda o seed antes de categorizar para garantir que novas contas de desenvolvimento/produção tenham categorias e regras populadas na primeira execução.
+  - **Frontend:** Adicionado o botão "Categorizar Lançamentos" na topbar (`public/index.html`) que aciona o backend e atualiza a dashboard.
+- **Arquivos impactados:** `src/domains/categorias/**`, `src/domains/transacoes/**`, `public/index.html`, `public/styles.css`, `public/app.js`.
+
 ## [2026-07-05] CRUD completo: transações, contas bancárias e itens de cupom
 
 - **Status:** accepted
