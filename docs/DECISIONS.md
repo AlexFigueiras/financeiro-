@@ -5,6 +5,17 @@
 
 ---
 
+## [2026-07-15] Flexibilidade financeira: Reconciliação dividida (Multi-Conta), novos tipos de conta e transferências
+
+- **Status:** accepted
+- **Contexto:** o usuário relatou a necessidade de poder dividir custos/compras representados por um mesmo cupom fiscal entre contas ou cartões diferentes (ex: parte pago com vale-alimentação, parte na conta corrente). Também identificamos limitações na categorização de transferências internas e na falta de suporte a tipos específicos de contas (Vale Alimentação, Vale Refeição, Cartão de Crédito).
+- **Decisão:**
+  - **Reconciliação multi-transação (1:N):** Removemos a restrição de índice único `uq_transacoes_cupom` na tabela `transacoes_banco` para permitir que mais de uma transação se associe ao mesmo cupom. Adaptamos o endpoint de atualização de transação (`PATCH /api/transacoes/:id`) para aceitar e validar o `cupom_id`. Na UI, adicionamos o campo opcional de vínculo ao modal de edição de lançamentos.
+  - **Dashboard resiliente:** Alteramos a agregação de `gastosPorCategoria` no Dashboard para usar `EXISTS` em vez de um JOIN direto 1:N no `transacoes_banco`, eliminando o bug de duplicidade dos itens do cupom quando este possui múltiplos pagamentos vinculados.
+  - **Novos tipos de conta:** Expandimos `TipoConta` e `TIPOS_CONTA_VALIDOS` no backend (`src/domains/contas/types.ts`) e o select correspondente no frontend (`public/index.html`) para incluir `vale_alimentacao`, `vale_refeicao` e `cartao_credito`.
+  - **Suporte a transferências:** Criamos a categoria de sistema `'transferencia'` (inserida na nova migration para todos os tenants existentes e mapeada no seed de novos tenants). Ajustamos as queries de `resumo`, `fluxoDiario` e `gastosPorCategoria` para desconsiderar as transferências, evitando inflar gastos e ganhos gerais.
+- **Arquivos impactados:** `infra/db/migrations/0003_flexibilidade_financeira.sql`, `src/domains/contas/types.ts`, `src/domains/dashboard/adapters/dashboard-repository-pg.ts`, `src/domains/transacoes/types.ts`, `src/domains/transacoes/services/transacoes-service.ts`, `src/domains/transacoes/adapters/transacoes-repository-pg.ts`, `src/domains/categorias/adapters/categorias-seed.ts`, `src/domains/cupons/ports/cupom-repository.ts`, `src/domains/cupons/adapters/cupom-repository-pg.ts`, `src/domains/cupons/services/cupom-service.ts`, `src/domains/cupons/__tests__/cupom-service.test.ts`, `public/index.html`, `public/transacao-form.js`.
+
 ## [2026-07-05] Fix: Correção de fuso horário e transações duplicadas em limites mensais
 
 - **Status:** accepted

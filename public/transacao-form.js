@@ -29,6 +29,35 @@
     }
   }
 
+  async function preencherCupons(chamarApi, cupomIdAtual) {
+    const select = $('transacao-cupom');
+    select.innerHTML = '<option value="">Nenhum cupom</option>';
+    const cupons = await chamarApi('/api/cupons');
+
+    if (cupomIdAtual) {
+      try {
+        const cupomAtual = await chamarApi(`/api/cupons/${cupomIdAtual}`);
+        const opt = document.createElement('option');
+        opt.value = cupomAtual.id;
+        const fmtBRL = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
+        opt.textContent = `${cupomAtual.estabelecimento} (${fmtBRL.format(cupomAtual.valorTotal)}) — ${new Date(cupomAtual.dataEmissao).toLocaleDateString('pt-BR')}`;
+        opt.selected = true;
+        select.appendChild(opt);
+      } catch (e) {
+        console.error('Falha ao carregar cupom atual:', e);
+      }
+    }
+
+    for (const c of cupons) {
+      if (String(c.id) === String(cupomIdAtual ?? '')) continue;
+      const opt = document.createElement('option');
+      opt.value = c.id;
+      const fmtBRL = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
+      opt.textContent = `${c.estabelecimento} (${fmtBRL.format(c.valorTotal)}) — ${new Date(c.dataEmissao).toLocaleDateString('pt-BR')}`;
+      select.appendChild(opt);
+    }
+  }
+
   function fecharModal() {
     $('modal-transacao').hidden = true;
   }
@@ -42,6 +71,7 @@
     $('transacao-erro').hidden = true;
     await preencherContas(chamarApi, undefined);
     preencherCategorias(categorias, 'outros');
+    await preencherCupons(chamarApi, undefined);
     $('modal-transacao').hidden = false;
     $('transacao-descricao').focus();
   }
@@ -55,6 +85,7 @@
     $('transacao-erro').hidden = true;
     await preencherContas(chamarApi, transacao.conta_id);
     preencherCategorias(categorias, transacao.categoria);
+    await preencherCupons(chamarApi, transacao.cupom_id);
     $('modal-transacao').hidden = false;
     $('transacao-descricao').focus();
   }
@@ -67,12 +98,15 @@
       const erro = $('transacao-erro');
       erro.hidden = true;
       const id = $('transacao-id').value;
+      const cupomVal = $('transacao-cupom').value;
       const corpo = {
         conta_id: $('transacao-conta').value,
         data_transacao: $('transacao-data').value,
         descricao_bruta: $('transacao-descricao').value.trim(),
         valor: $('transacao-valor').value,
         categoria: $('transacao-categoria').value,
+        cupom_id: cupomVal ? parseInt(cupomVal, 10) : null,
+        status_reconciliado: !!cupomVal,
       };
       try {
         await chamarApi(id ? `/api/transacoes/${id}` : '/api/transacoes', {

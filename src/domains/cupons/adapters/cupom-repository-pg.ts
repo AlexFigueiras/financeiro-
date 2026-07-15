@@ -167,4 +167,23 @@ export const cupomRepositoryPg: CupomRepository = {
       await recalcularTotalCupom(client, tenantId, cupomId);
     });
   },
+
+  async listarPendentes(tenantId) {
+    const { rows } = await pool.query(
+      `SELECT c.id, c.data_emissao AS "dataEmissao", c.valor_total AS "valorTotal", c.estabelecimento
+         FROM cupons_fiscais c
+        WHERE c.tenant_id = $1
+          AND NOT EXISTS (
+            SELECT 1 FROM transacoes_banco t WHERE t.cupom_id = c.id
+          )
+        ORDER BY c.data_emissao DESC`,
+      [tenantId]
+    );
+    return rows.map((r) => ({
+      id: Number(r.id),
+      dataEmissao: r.dataEmissao,
+      valorTotal: Number(r.valorTotal),
+      estabelecimento: r.estabelecimento,
+    }));
+  },
 };

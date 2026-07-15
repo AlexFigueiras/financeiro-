@@ -49,6 +49,9 @@
           <option value="poupanca">Poupança</option>
           <option value="pagamento">Conta de pagamento</option>
           <option value="carteira_digital">Carteira digital</option>
+          <option value="vale_alimentacao">Vale Alimentação</option>
+          <option value="vale_refeicao">Vale Refeição</option>
+          <option value="cartao_credito">Cartão de Crédito</option>
           <option value="outro">Outro</option>
         </select>
         <div id="conta-erro" class="feedback erro" role="alert" hidden></div>
@@ -74,6 +77,10 @@
       <input type="number" id="transacao-valor" step="0.01" required placeholder="Ex.: -150.00">
       <label for="transacao-categoria">Categoria</label>
       <select id="transacao-categoria"></select>
+      <label for="transacao-cupom">Vincular Cupom Fiscal (Opcional)</label>
+      <select id="transacao-cupom">
+        <option value="">Nenhum cupom</option>
+      </select>
       <div id="transacao-erro" class="feedback erro" role="alert" hidden></div>
       <div class="modal-acoes">
         <button type="submit" id="btn-salvar-transacao">Salvar</button>

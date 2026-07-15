@@ -16,6 +16,7 @@ const CATEGORIAS_PADRAO: Array<{ chave: string; nome: string; cor: string }> = [
   { chave: 'eletronicos', nome: 'Eletrônicos', cor: '#2a78d6' },
   { chave: 'moradia', nome: 'Moradia', cor: '#eda100' },
   { chave: 'combustivel', nome: 'Combustível de Veículo', cor: '#a855f7' },
+  { chave: 'transferencia', nome: 'Transferência', cor: '#94a3b8' },
   { chave: 'outros', nome: 'Outros', cor: '#898781' },
 ];
 

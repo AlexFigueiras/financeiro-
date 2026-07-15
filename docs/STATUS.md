@@ -13,11 +13,11 @@
 | Importação de extrato OFX | ✅ | `src/domains/extrato/domain/ofx-parser.ts` | Parser próprio (SGML/XML), dedup por hash `(tenant_id, hash_ofx)`. |
 | Importação de extrato via PDF/imagem (OCR) | ✅ | `src/domains/extrato/adapters/extrato-ocr-gemini.ts` | Descarta linhas de saldo mesmo se a IA as incluir. |
 | OCR de cupom fiscal | ✅ | `src/domains/cupons/` | Valida soma dos itens vs. total (tolerância R$ 0,05). |
-| Motor de reconciliação (match cupom↔transação) | ✅ | `infra/db/migrations/*.sql` (`fn_reconciliar`), `src/domains/reconciliacao/` | Valor exato + janela de 48h, 1:1 garantido por índice único. |
+| Motor de reconciliação (match cupom↔transação) | ✅ | `infra/db/migrations/*.sql` (`fn_reconciliar`), `src/domains/reconciliacao/` | Match automático 1:1. Suporta vínculo manual 1:N (múltiplas transações/contas por cupom). |
 | Categorização manual + aprendida | ✅ | `src/domains/transacoes/`, `src/domains/cupons/` | Regra aprendida por tenant em `regras_categorizacao`. |
 | Dashboard (KPIs, gráficos, tabela) | ✅ | `src/domains/dashboard/`, `public/charts.js` | Sem paginação de gráfico por período customizado (só mês). |
 | CRUD de transações (lançamentos) | ✅ | `src/domains/transacoes/`, `public/transacao-form.js`, `public/transacoes-tabela.js` | Criar manual, editar (data/valor/descrição/conta/categoria) e excluir. Editar data/valor de transação reconciliada desvincula o cupom. |
-| CRUD de contas bancárias | ✅ | `src/domains/contas/`, `public/contas-ui.js` | Criar/listar/editar/excluir com UI (modal "+ Conta" com lista). Exclusão bloqueada (409) se a conta tiver transações vinculadas. |
+| CRUD de contas bancárias | ✅ | `src/domains/contas/`, `public/contas-ui.js`, `public/index.html` | Criar/listar/editar/excluir com UI. Suporta tipos especiais (vale alimentação/refeição e cartão de crédito). |
 | CRUD de itens de cupom fiscal | ✅ | `src/domains/cupons/`, `public/item-cupom-form.js` | Editar nome/quantidade/preço unitário e excluir item; `cupons_fiscais.valor_total` é recalculado a cada mudança. |
 | Cron de reconciliação periódica | 🟡 | `src/index.ts` | Só roda em `AUTH_MODE=off` (servidor tradicional single-tenant dev). Em produção multi-tenant, reconciliação dispara só por upload — sem varredura periódica por tenant ainda. |
 | Cobrança/assinatura (billing) | ⬜ | — | Produto hoje não cobra; nenhuma integração de pagamento. |

@@ -166,10 +166,17 @@ export const transacoesRepositoryPg: TransacoesRepository = {
       if (dados.valor !== undefined) add('valor', dados.valor);
       if (dados.categoria !== undefined) add('categoria', dados.categoria);
 
+      if (dados.cupomId !== undefined) add('cupom_id', dados.cupomId);
+      if (dados.statusReconciliado !== undefined) add('status_reconciliado', dados.statusReconciliado);
+
       // Mudar data/valor invalida o match feito pelo motor de reconciliação
       // (baseado em valor exato + janela de 48h) — desvincula em vez de deixar
       // uma transação "detalhada" mostrando um cupom que não corresponde mais.
-      if (atual.rows[0].cupom_id !== null && (dados.dataTransacao !== undefined || dados.valor !== undefined)) {
+      if (
+        atual.rows[0].cupom_id !== null && 
+        (dados.dataTransacao !== undefined || dados.valor !== undefined) &&
+        dados.cupomId === undefined
+      ) {
         add('cupom_id', null);
         add('status_reconciliado', false);
       }

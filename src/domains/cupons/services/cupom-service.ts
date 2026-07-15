@@ -90,5 +90,9 @@ export function criarCupomService(ocr: CupomOcrPort, repo: CupomRepository) {
     async excluirItem(tenantId: string, itemId: number): Promise<void> {
       await repo.excluirItem(tenantId, itemId);
     },
+
+    async listarPendentes(tenantId: string) {
+      return repo.listarPendentes(tenantId);
+    },
   };
 }

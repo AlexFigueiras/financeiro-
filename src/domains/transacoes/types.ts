@@ -44,4 +44,6 @@ export interface DadosTransacao {
   descricaoBruta: string;
   valor: number;
   categoria: string;
+  cupomId?: number | null;
+  statusReconciliado?: boolean;
 }

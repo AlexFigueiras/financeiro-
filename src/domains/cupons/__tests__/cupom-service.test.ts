@@ -23,6 +23,7 @@ function fakeRepo(overrides: Partial<CupomRepository> = {}): CupomRepository {
     async categoriaExiste() { return true; },
     async atualizarItem() {},
     async excluirItem() {},
+    async listarPendentes() { return []; },
     ...overrides,
   };
 }

@@ -1,10 +1,21 @@
-export type TipoConta = 'corrente' | 'poupanca' | 'pagamento' | 'carteira_digital' | 'outro';
+export type TipoConta =
+  | 'corrente'
+  | 'poupanca'
+  | 'pagamento'
+  | 'carteira_digital'
+  | 'vale_alimentacao'
+  | 'vale_refeicao'
+  | 'cartao_credito'
+  | 'outro';
 
 export const TIPOS_CONTA_VALIDOS: TipoConta[] = [
   'corrente',
   'poupanca',
   'pagamento',
   'carteira_digital',
+  'vale_alimentacao',
+  'vale_refeicao',
+  'cartao_credito',
   'outro',
 ];
 

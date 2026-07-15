@@ -16,6 +16,7 @@ export const dashboardRepositoryPg: DashboardRepository = {
                 COALESCE(ABS(SUM(valor) FILTER (WHERE valor < 0)), 0) AS gastos
            FROM transacoes_banco
           WHERE tenant_id = $1
+            AND categoria <> 'transferencia'
             AND data_transacao >= ($2::timestamp AT TIME ZONE '${TZ}')
             AND data_transacao <  (($2::timestamp + INTERVAL '1 month') AT TIME ZONE '${TZ}')`,
         [tenantId, `${mes}-01`]
@@ -47,7 +48,9 @@ export const dashboardRepositoryPg: DashboardRepository = {
               COALESCE(ABS(SUM(t.valor) FILTER (WHERE t.valor < 0)), 0) AS gastos
          FROM dias d
          LEFT JOIN transacoes_banco t
-           ON (t.data_transacao AT TIME ZONE '${TZ}')::date = d.dia AND t.tenant_id = $1
+           ON (t.data_transacao AT TIME ZONE '${TZ}')::date = d.dia 
+          AND t.tenant_id = $1
+          AND t.categoria <> 'transferencia'
         GROUP BY d.dia
         ORDER BY d.dia`,
       [tenantId, `${mes}-01`]
@@ -62,22 +65,29 @@ export const dashboardRepositoryPg: DashboardRepository = {
     const { rows } = await pool.query(
       `SELECT cat AS categoria, SUM(val) AS total
          FROM (
-           -- Sub-itens de cupons reconciliados
+           -- Sub-itens de cupons reconciliados (usando EXISTS para evitar duplicação por múltiplos pagamentos)
            SELECT i.categoria AS cat, i.valor_total AS val
              FROM itens_cupom i
              JOIN cupons_fiscais cf ON cf.id = i.cupom_id
-             JOIN transacoes_banco t ON t.cupom_id = cf.id AND t.status_reconciliado = TRUE
-            WHERE t.tenant_id = $1
-              AND t.data_transacao >= ($2::timestamp AT TIME ZONE '${TZ}')
-              AND t.data_transacao <  (($2::timestamp + INTERVAL '1 month') AT TIME ZONE '${TZ}')
+            WHERE cf.tenant_id = $1
+              AND EXISTS (
+                SELECT 1
+                  FROM transacoes_banco t
+                 WHERE t.cupom_id = cf.id
+                   AND t.status_reconciliado = TRUE
+                   AND t.tenant_id = $1
+                   AND t.data_transacao >= ($2::timestamp AT TIME ZONE '${TZ}')
+                   AND t.data_transacao <  (($2::timestamp + INTERVAL '1 month') AT TIME ZONE '${TZ}')
+              )
 
            UNION ALL
 
-           -- Transações de saída não reconciliadas (sem cupom)
+           -- Transações de saída não reconciliadas (sem cupom e sem transferência)
            SELECT t.categoria AS cat, ABS(t.valor) AS val
              FROM transacoes_banco t
             WHERE t.tenant_id = $1
               AND t.valor < 0
+              AND t.categoria <> 'transferencia'
               AND t.cupom_id IS NULL
               AND t.data_transacao >= ($2::timestamp AT TIME ZONE '${TZ}')
               AND t.data_transacao <  (($2::timestamp + INTERVAL '1 month') AT TIME ZONE '${TZ}')

@@ -83,6 +83,14 @@ cuponsRouter.post(
   })
 );
 
+/** GET /api/cupons — lista cupons pendentes de reconciliação. */
+cuponsRouter.get(
+  '/',
+  asyncHandler(async (req, res) => {
+    res.json(await cupomService.listarPendentes(req.tenantId!));
+  })
+);
+
 /** GET /api/cupons/:id — cupom com itens desmembrados. */
 cuponsRouter.get(
   '/:id',

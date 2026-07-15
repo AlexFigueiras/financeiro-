@@ -18,6 +18,8 @@ interface CorpoTransacao {
   descricao_bruta?: unknown;
   valor?: unknown;
   categoria?: unknown;
+  cupom_id?: unknown;
+  status_reconciliado?: unknown;
 }
 
 export function criarTransacoesService(
@@ -124,6 +126,15 @@ export function criarTransacoesService(
       if (corpo.descricao_bruta !== undefined) dados.descricaoBruta = validarDescricao(corpo.descricao_bruta);
       if (corpo.valor !== undefined) dados.valor = validarValor(corpo.valor);
       if (corpo.categoria !== undefined) dados.categoria = await validarCategoria(tenantId, corpo.categoria);
+
+      if (corpo.cupom_id !== undefined) {
+        const cupomId = corpo.cupom_id === null ? null : parseInt(String(corpo.cupom_id), 10);
+        if (cupomId !== null && isNaN(cupomId)) throw new AppError('cupom_id inválido.', 400);
+        dados.cupomId = cupomId;
+      }
+      if (corpo.status_reconciliado !== undefined) {
+        dados.statusReconciliado = Boolean(corpo.status_reconciliado);
+      }
 
       if (Object.keys(dados).length === 0) {
         throw new AppError('Informe ao menos um campo para atualizar.', 400);
