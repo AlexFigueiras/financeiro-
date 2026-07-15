@@ -12,7 +12,7 @@
 | Convite de múltiplos membros por tenant | 🟡 | `tenant_members` (schema pronto) | Schema suporta `papel` (owner/member); **sem rota/UI de convite ainda**. |
 | Importação de extrato OFX | ✅ | `src/domains/extrato/domain/ofx-parser.ts` | Parser próprio (SGML/XML), dedup por hash `(tenant_id, hash_ofx)`. |
 | Importação de extrato via PDF/imagem (OCR) | ✅ | `src/domains/extrato/adapters/extrato-ocr-gemini.ts` | Descarta linhas de saldo mesmo se a IA as incluir. |
-| OCR de cupom fiscal | ✅ | `src/domains/cupons/` | Valida soma dos itens vs. total (tolerância R$ 0,05). |
+| OCR de cupom fiscal | ✅ | `src/domains/cupons/` | Valida soma dos itens vs. total (tolerância R$ 0,05). Suporta upload de múltiplas fotos sequenciais de cupons longos com deduplicação via Gemini. |
 | Motor de reconciliação (match cupom↔transação) | ✅ | `infra/db/migrations/*.sql` (`fn_reconciliar`), `src/domains/reconciliacao/` | Match automático 1:1. Suporta vínculo manual 1:N (múltiplas transações/contas por cupom). |
 | Categorização manual + aprendida | ✅ | `src/domains/transacoes/`, `src/domains/cupons/` | Regra aprendida por tenant em `regras_categorizacao`. |
 | Dashboard (KPIs, gráficos, tabela) | ✅ | `src/domains/dashboard/`, `public/charts.js` | Sem paginação de gráfico por período customizado (só mês). |

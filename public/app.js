@@ -109,13 +109,20 @@
   function configurarDropzone(idZona, idInput, url, nomeAmigavel) {
     const zona = $(idZona);
     const input = $(idInput);
+    const permiteMultiplo = input.multiple;
 
-    const enviar = async (arquivo) => {
-      if (!arquivo) return;
+    const enviar = async (arquivos) => {
+      if (!arquivos || arquivos.length === 0) return;
       zona.classList.add('enviando');
       try {
         const form = new FormData();
-        form.append('arquivo', arquivo);
+        if (permiteMultiplo) {
+          for (let i = 0; i < arquivos.length; i++) {
+            form.append('arquivo', arquivos[i]);
+          }
+        } else {
+          form.append('arquivo', arquivos[0]);
+        }
         const r = await chamarApi(url, { method: 'POST', body: form });
         mostrarFeedback(`${nomeAmigavel}: ${r.mensagem} ${resumoUpload(r)}`, 'sucesso');
         await atualizarTudo();
@@ -131,13 +138,13 @@
     zona.addEventListener('keydown', (e) => {
       if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); input.click(); }
     });
-    input.addEventListener('change', () => enviar(input.files[0]));
+    input.addEventListener('change', () => enviar(input.files));
     zona.addEventListener('dragover', (e) => { e.preventDefault(); zona.classList.add('arrastando'); });
     zona.addEventListener('dragleave', () => zona.classList.remove('arrastando'));
     zona.addEventListener('drop', (e) => {
       e.preventDefault();
       zona.classList.remove('arrastando');
-      enviar(e.dataTransfer.files[0]);
+      enviar(e.dataTransfer.files);
     });
   }
 

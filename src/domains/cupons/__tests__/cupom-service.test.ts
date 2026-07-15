@@ -31,14 +31,14 @@ function fakeRepo(overrides: Partial<CupomRepository> = {}): CupomRepository {
 describe('cupomService.processar', () => {
   it('processa um cupom válido e retorna o resumo', async () => {
     const service = criarCupomService(fakeOcr(), fakeRepo());
-    const resultado = await service.processar('11111111-1111-4111-8111-111111111111', Buffer.from(''), 'image/jpeg');
+    const resultado = await service.processar('11111111-1111-4111-8111-111111111111', [{ buffer: Buffer.from(''), mimeType: 'image/jpeg' }]);
     expect(resultado).toMatchObject({ cupomId: 42, estabelecimento: 'Mercado X', valorTotal: 50, itens: 1 });
   });
 
   it('propaga a rejeição de validação quando o cupom é inconsistente', async () => {
     const inconsistente = { ...CUPOM_VALIDO, valor_total: 999 };
     const service = criarCupomService(fakeOcr(inconsistente), fakeRepo());
-    await expect(service.processar('11111111-1111-4111-8111-111111111111', Buffer.from(''), 'image/jpeg')).rejects.toThrow('Inconsistência na extração');
+    await expect(service.processar('11111111-1111-4111-8111-111111111111', [{ buffer: Buffer.from(''), mimeType: 'image/jpeg' }])).rejects.toThrow('Inconsistência na extração');
   });
 });
 

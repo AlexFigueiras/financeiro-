@@ -59,17 +59,19 @@ cuponsRouter.delete(
 
 /**
  * POST /api/cupons/upload
- * multipart/form-data: arquivo=<foto ou PDF do cupom>
+ * multipart/form-data: arquivo=<fotos ou PDF do cupom> (aceita múltiplos arquivos)
  */
 cuponsRouter.post(
   '/upload',
-  upload.single('arquivo'),
+  upload.array('arquivo', 10),
   asyncHandler(async (req, res) => {
-    if (!req.file) {
+    const files = req.files as Express.Multer.File[] | undefined;
+    if (!files || files.length === 0) {
       throw new AppError("Nenhum arquivo enviado. Use o campo multipart 'arquivo'.", 400);
     }
     const tenantId = req.tenantId!;
-    const resultado = await cupomService.processar(tenantId, req.file.buffer, req.file.mimetype);
+    const arquivosOcr = files.map((f) => ({ buffer: f.buffer, mimeType: f.mimetype }));
+    const resultado = await cupomService.processar(tenantId, arquivosOcr);
     const matches = await reconciliacaoService.reconciliarSeguro(tenantId, 'upload de cupom');
     const vinculado = matches.some((m) => m.cupomFiscalId === resultado.cupomId);
 

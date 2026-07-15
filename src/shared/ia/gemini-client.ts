@@ -18,18 +18,33 @@ const MIME_PERMITIDOS = new Set([
   'application/pdf',
 ]);
 
+export interface ArquivoOcr {
+  buffer: Buffer;
+  mimeType: string;
+}
+
 export async function requisitarGeminiJson<T>(
-  arquivo: Buffer,
+  arquivo: Buffer | ArquivoOcr[],
   mimeType: string,
   systemPrompt: string,
   userText: string
 ): Promise<T> {
-  if (!MIME_PERMITIDOS.has(mimeType)) {
-    throw new AppError(
-      `Tipo de arquivo não suportado: ${mimeType}. Envie JPG, PNG, WEBP, HEIC ou PDF.`,
-      415
-    );
+  const arquivos: ArquivoOcr[] = Array.isArray(arquivo)
+    ? arquivo
+    : [{ buffer: arquivo, mimeType }];
+
+  for (const arq of arquivos) {
+    if (!MIME_PERMITIDOS.has(arq.mimeType)) {
+      throw new AppError(
+        `Tipo de arquivo não suportado: ${arq.mimeType}. Envie JPG, PNG, WEBP, HEIC ou PDF.`,
+        415
+      );
+    }
   }
+
+  const inlineDataParts = arquivos.map((arq) => ({
+    inline_data: { mime_type: arq.mimeType, data: arq.buffer.toString('base64') },
+  }));
 
   const body = {
     system_instruction: { parts: [{ text: systemPrompt }] },
@@ -37,7 +52,7 @@ export async function requisitarGeminiJson<T>(
       {
         role: 'user',
         parts: [
-          { inline_data: { mime_type: mimeType, data: arquivo.toString('base64') } },
+          ...inlineDataParts,
           { text: userText },
         ],
       },

@@ -5,6 +5,17 @@
 
 ---
 
+## [2026-07-15] Suporte a cupons fiscais longos em múltiplas fotos com deduplicação multimodal no Gemini
+
+- **Status:** accepted
+- **Contexto:** o usuário relatou que cupons de mercado longos exigem tirar fotos muito distantes (o que reduz a legibilidade) ou aproximadas/fatiadas (o que gera itens duplicados devido às áreas de sobreposição nas transições de corte das fotos consecutivas).
+- **Decisão:**
+  - **Múltiplas imagens na API Gemini:** Atualizamos a função `requisitarGeminiJson` no client do Gemini para aceitar um lote/array de arquivos base64. O backend agora encaminha esse lote diretamente ao Gemini em uma única requisição multimodal.
+  - **Prompt enriquecido:** Atualizamos o `SYSTEM_PROMPT` no domínio de cupons para orientar a IA de que as fotos representam pedaços sequenciais de um único cupom com possíveis áreas de sobreposição e que ela deve filtrar os itens duplicados na costura das transições.
+  - **Frontend múltiplo:** Adicionamos o atributo `multiple` ao input de arquivos de cupom no `index.html` e alteramos `configurarDropzone` no `app.js` para enviar todos os arquivos sob o mesmo campo `arquivo` no payload `FormData`.
+  - **Backend flexível:** Modificamos o multer de `upload.single('arquivo')` para `upload.array('arquivo', 10)` permitindo o recebimento de até 10 imagens sequenciais para o processamento unificado no `cupomService`.
+- **Arquivos impactados:** `public/index.html`, `public/app.js`, `src/shared/ia/gemini-client.ts`, `src/domains/cupons/ports/cupom-ocr-port.ts`, `src/domains/cupons/adapters/cupom-ocr-gemini.ts`, `src/domains/cupons/services/cupom-service.ts`, `src/domains/cupons/actions/cupons-actions.ts`, `src/domains/cupons/__tests__/cupom-service.test.ts`.
+
 ## [2026-07-15] Flexibilidade financeira: Reconciliação dividida (Multi-Conta), novos tipos de conta e transferências
 
 - **Status:** accepted

@@ -1,4 +1,4 @@
-import { CupomOcrPort } from '../ports/cupom-ocr-port';
+import { CupomOcrPort, ArquivoOcr } from '../ports/cupom-ocr-port';
 import { CupomRepository } from '../ports/cupom-repository';
 import { validarCupom, normalizarDataEmissao } from '../domain/validacao-cupom';
 import { DadosItemCupom, ResultadoCupom } from '../types';
@@ -7,9 +7,9 @@ import { publicar } from '../../../events/bus';
 
 export function criarCupomService(ocr: CupomOcrPort, repo: CupomRepository) {
   return {
-    /** Processa o arquivo do cupom: OCR via Gemini + persistência transacional. */
-    async processar(tenantId: string, arquivo: Buffer, mimeType: string): Promise<ResultadoCupom> {
-      const dados = await ocr.extrairCupom(arquivo, mimeType);
+    /** Processa os arquivos do cupom: OCR via Gemini + persistência transacional. */
+    async processar(tenantId: string, arquivos: ArquivoOcr[]): Promise<ResultadoCupom> {
+      const dados = await ocr.extrairCupom(arquivos);
       validarCupom(dados);
       const dataEmissao = normalizarDataEmissao(dados.data);
 
