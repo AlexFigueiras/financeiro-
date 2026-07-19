@@ -116,7 +116,19 @@
         <label for="seletor-mes" class="visually-hidden">Mês de referência</label>
         <input type="month" id="seletor-mes" class="mes-input">
         <button type="button" id="btn-nova-conta" class="btn btn-secundario">+ Conta</button>
-        <button type="button" id="btn-sair" class="btn-sair" hidden>Sair</button>
+        <div class="perfil-container" id="perfil-container">
+          <button type="button" id="btn-perfil" class="btn-perfil" title="Menu de Perfil">
+            <span class="perfil-letra" id="perfil-letra">U</span>
+          </button>
+          <div class="perfil-dropdown" id="perfil-dropdown" hidden>
+            <div class="perfil-info">
+              <span class="perfil-email" id="perfil-email">usuario@exemplo.com</span>
+            </div>
+            <hr class="dropdown-divisor">
+            <button type="button" id="btn-limpar-mes" class="dropdown-item">Limpar Mês Atual</button>
+            <button type="button" id="btn-sair" class="dropdown-item btn-sair-dropdown" hidden>Sair</button>
+          </div>
+        </div>
       </div>
     </div>
   </header>

@@ -70,8 +70,9 @@ cuponsRouter.post(
       throw new AppError("Nenhum arquivo enviado. Use o campo multipart 'arquivo'.", 400);
     }
     const tenantId = req.tenantId!;
-    const arquivosOcr = files.map((f) => ({ buffer: f.buffer, mimeType: f.mimetype }));
-    const resultado = await cupomService.processar(tenantId, arquivosOcr);
+    const forcar = req.body.forcar === 'true' || req.body.forcar === true;
+    const arquivosOcr = files.map((f) => ({ buffer: f.buffer, mimeType: f.mimetype, nome: f.originalname }));
+    const resultado = await cupomService.processar(tenantId, arquivosOcr, { forcar });
     const matches = await reconciliacaoService.reconciliarSeguro(tenantId, 'upload de cupom');
     const vinculado = matches.some((m) => m.cupomFiscalId === resultado.cupomId);
 

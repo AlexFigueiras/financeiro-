@@ -1,4 +1,4 @@
-import { withTenantTransaction } from '../../../infra/db/pool';
+import { pool, withTenantTransaction } from '../../../infra/db/pool';
 import { ExtratoRepository } from '../ports/extrato-repository';
 import { hashOfx } from '../domain/ofx-parser';
 
@@ -27,5 +27,24 @@ export const extratoRepositoryPg: ExtratoRepository = {
       }
       return { totalNoArquivo: transacoes.length, importadas, ignoradasDuplicadas };
     });
+  },
+
+  async buscarArquivoImportado(tenantId, hashArquivo) {
+    const { rows } = await pool.query<{ nome_arquivo: string; criado_em: Date }>(
+      `SELECT nome_arquivo, criado_em FROM arquivos_importados
+        WHERE tenant_id = $1 AND tipo = 'extrato' AND hash_arquivo = $2`,
+      [tenantId, hashArquivo]
+    );
+    if (rows.length === 0) return null;
+    return { nomeArquivo: rows[0].nome_arquivo, enviadoEm: rows[0].criado_em };
+  },
+
+  async registrarArquivoImportado(tenantId, arquivo) {
+    await pool.query(
+      `INSERT INTO arquivos_importados (tenant_id, tipo, hash_arquivo, nome_arquivo, tamanho_bytes)
+       VALUES ($1, 'extrato', $2, $3, $4)
+       ON CONFLICT (tenant_id, tipo, hash_arquivo) DO NOTHING`,
+      [tenantId, arquivo.hashArquivo, arquivo.nomeArquivo, arquivo.tamanhoBytes]
+    );
   },
 };

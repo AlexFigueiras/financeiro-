@@ -66,3 +66,17 @@ transacoesRouter.delete(
     res.json({ mensagem: 'Transação excluída com sucesso.' });
   })
 );
+
+/** POST /api/transacoes/limpar-mes — exclui todas as transações, cupons e arquivos importados do mês. */
+transacoesRouter.post(
+  '/limpar-mes',
+  asyncHandler(async (req, res) => {
+    const { mes } = req.body ?? {};
+    if (!mes) throw new AppError('O campo mes é obrigatório.', 400);
+    const result = await transacoesService.limparMes(req.tenantId!, mes);
+    res.json({
+      mensagem: 'Dados do mês limpos com sucesso.',
+      ...result
+    });
+  })
+);

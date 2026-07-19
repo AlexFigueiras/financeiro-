@@ -1,6 +1,7 @@
 import { TransacoesRepository } from '../ports/transacoes-repository';
 import { AppError } from '../../../shared/errors/app-error';
 import { DadosTransacao, TransacaoListada } from '../types';
+import { auditar } from '../../../shared/observability/audit';
 
 interface VerificadorCategoria {
   existe(tenantId: string, chave: string): Promise<boolean>;
@@ -149,6 +150,18 @@ export function criarTransacoesService(
     async recategorizarTodas(tenantId: string): Promise<number> {
       await categorias.seed(tenantId);
       return repo.recategorizarTodas(tenantId);
+    },
+
+    async limparMes(tenantId: string, mes: string) {
+      if (!/^\d{4}-\d{2}$/.test(mes)) {
+        throw new AppError('Parâmetro mes deve estar no formato YYYY-MM.', 400);
+      }
+      const resultado = await repo.limparMes(tenantId, mes);
+      await auditar({
+        acao: 'mes.limpo',
+        detalhes: { mes, ...resultado },
+      });
+      return resultado;
     },
   };
 }

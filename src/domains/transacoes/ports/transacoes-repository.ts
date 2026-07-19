@@ -7,4 +7,5 @@ export interface TransacoesRepository {
   atualizar(tenantId: string, transacaoId: number, dados: Partial<DadosTransacao>): Promise<TransacaoListada>;
   excluir(tenantId: string, transacaoId: number): Promise<void>;
   recategorizarTodas(tenantId: string): Promise<number>;
+  limparMes(tenantId: string, mes: string): Promise<{ transacoesExcluidas: number; cuponsExcluidos: number; arquivosExcluidos: number }>;
 }

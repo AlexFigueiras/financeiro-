@@ -10,13 +10,14 @@
 | Self-service signup (tenant automático) | ✅ | `src/domains/tenancy/`, evento `tenant.criado.v1` | Primeiro login sem tenant provisiona um novo automaticamente. |
 | Isolamento multi-tenant (RLS) | ✅ | `infra/db/migrations/0002_multi_tenant_rls.sql` | `tenant_id` em toda tabela + policy dupla (app + `auth.uid()`). |
 | Convite de múltiplos membros por tenant | 🟡 | `tenant_members` (schema pronto) | Schema suporta `papel` (owner/member); **sem rota/UI de convite ainda**. |
-| Importação de extrato OFX | ✅ | `src/domains/extrato/domain/ofx-parser.ts` | Parser próprio (SGML/XML), dedup por hash `(tenant_id, hash_ofx)`. |
+| Importação de extrato OFX | ✅ | `src/domains/extrato/domain/ofx-parser.ts` | Parser próprio (SGML/XML), dedup por hash `(tenant_id, hash_ofx)` por transação. |
 | Importação de extrato via PDF/imagem (OCR) | ✅ | `src/domains/extrato/adapters/extrato-ocr-gemini.ts` | Descarta linhas de saldo mesmo se a IA as incluir. |
 | OCR de cupom fiscal | ✅ | `src/domains/cupons/` | Valida soma dos itens vs. total (tolerância R$ 0,05). Suporta upload de múltiplas fotos sequenciais de cupons longos com deduplicação via Gemini. |
+| Aviso de reenvio do mesmo arquivo (extrato/cupom) | ✅ | `src/shared/arquivos/hash-arquivo.ts`, `arquivos_importados` (`infra/db/migrations/0004_arquivos_importados.sql`) | Dedup por hash do **conteúdo** do arquivo (não nome/tamanho), checado ANTES do parser/OCR — 409 amigável com opção "processar mesmo assim" (`forcar=true`) na UI. Migration aplicada em produção via `DATABASE_URL` do Transaction pooler (porta 6543). |
 | Motor de reconciliação (match cupom↔transação) | ✅ | `infra/db/migrations/*.sql` (`fn_reconciliar`), `src/domains/reconciliacao/` | Match automático 1:1. Suporta vínculo manual 1:N (múltiplas transações/contas por cupom). |
 | Categorização manual + aprendida | ✅ | `src/domains/transacoes/`, `src/domains/cupons/` | Regra aprendida por tenant em `regras_categorizacao`. |
 | Dashboard (KPIs, gráficos, tabela) | ✅ | `src/domains/dashboard/`, `public/charts.js` | Sem paginação de gráfico por período customizado (só mês). |
-| CRUD de transações (lançamentos) | ✅ | `src/domains/transacoes/`, `public/transacao-form.js`, `public/transacoes-tabela.js` | Criar manual, editar (data/valor/descrição/conta/categoria) e excluir. Editar data/valor de transação reconciliada desvincula o cupom. |
+| CRUD de transações (lançamentos) + Limpar Mês | ✅ | `src/domains/transacoes/`, `public/transacao-form.js`, `public/transacoes-tabela.js`, `public/app.js` | Criar manual, editar (data/valor/descrição/conta/categoria), excluir e botão para limpar todos os dados do mês de referência (oculto no Perfil). |
 | CRUD de contas bancárias | ✅ | `src/domains/contas/`, `public/contas-ui.js`, `public/index.html` | Criar/listar/editar/excluir com UI. Suporta tipos especiais (vale alimentação/refeição e cartão de crédito). |
 | CRUD de itens de cupom fiscal | ✅ | `src/domains/cupons/`, `public/item-cupom-form.js` | Editar nome/quantidade/preço unitário e excluir item; `cupons_fiscais.valor_total` é recalculado a cada mudança. |
 | Cron de reconciliação periódica | 🟡 | `src/index.ts` | Só roda em `AUTH_MODE=off` (servidor tradicional single-tenant dev). Em produção multi-tenant, reconciliação dispara só por upload — sem varredura periódica por tenant ainda. |

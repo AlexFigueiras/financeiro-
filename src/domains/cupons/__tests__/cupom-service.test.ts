@@ -24,6 +24,8 @@ function fakeRepo(overrides: Partial<CupomRepository> = {}): CupomRepository {
     async atualizarItem() {},
     async excluirItem() {},
     async listarPendentes() { return []; },
+    async buscarArquivoImportado() { return null; },
+    async registrarArquivoImportado() {},
     ...overrides,
   };
 }
@@ -39,6 +41,53 @@ describe('cupomService.processar', () => {
     const inconsistente = { ...CUPOM_VALIDO, valor_total: 999 };
     const service = criarCupomService(fakeOcr(inconsistente), fakeRepo());
     await expect(service.processar('11111111-1111-4111-8111-111111111111', [{ buffer: Buffer.from(''), mimeType: 'image/jpeg' }])).rejects.toThrow('Inconsistência na extração');
+  });
+
+  it('rejeita reenvio do(s) mesmo(s) arquivo(s) com 409 e detalhes do envio anterior', async () => {
+    const anterior = { nomeArquivo: 'cupom.jpg', enviadoEm: new Date('2026-01-10T12:00:00Z') };
+    const service = criarCupomService(
+      fakeOcr(),
+      fakeRepo({ async buscarArquivoImportado() { return anterior; } })
+    );
+    await expect(
+      service.processar('11111111-1111-4111-8111-111111111111', [{ buffer: Buffer.from('foto'), mimeType: 'image/jpeg' }])
+    ).rejects.toMatchObject({ status: 409, details: { duplicado: true } });
+  });
+
+  it('processa normalmente reenvio do mesmo cupom quando forcar=true', async () => {
+    let registrou = false;
+    const service = criarCupomService(
+      fakeOcr(),
+      fakeRepo({
+        async buscarArquivoImportado() { return { nomeArquivo: 'cupom.jpg', enviadoEm: new Date() }; },
+        async registrarArquivoImportado() { registrou = true; },
+      })
+    );
+    const resultado = await service.processar(
+      '11111111-1111-4111-8111-111111111111',
+      [{ buffer: Buffer.from('foto'), mimeType: 'image/jpeg' }],
+      { forcar: true }
+    );
+    expect(resultado.cupomId).toBe(42);
+    expect(registrou).toBe(true);
+  });
+
+  it('mesma coleção de fotos em ordem diferente produz o mesmo hash (não duplica indevidamente por ordem)', async () => {
+    const hashesConsultados: string[] = [];
+    const service = criarCupomService(
+      fakeOcr(),
+      fakeRepo({
+        async buscarArquivoImportado(_t, hash) {
+          hashesConsultados.push(hash);
+          return null;
+        },
+      })
+    );
+    const a = { buffer: Buffer.from('parte-a'), mimeType: 'image/jpeg' };
+    const b = { buffer: Buffer.from('parte-b'), mimeType: 'image/jpeg' };
+    await service.processar('11111111-1111-4111-8111-111111111111', [a, b]);
+    await service.processar('11111111-1111-4111-8111-111111111111', [b, a]);
+    expect(hashesConsultados[0]).toBe(hashesConsultados[1]);
   });
 });
 

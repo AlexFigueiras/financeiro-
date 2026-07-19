@@ -39,6 +39,12 @@ export interface CupomComItens {
   itens: ItemCupom[];
 }
 
+/** Registro de um envio anterior dos mesmos arquivos — base do aviso de reenvio duplicado. */
+export interface ArquivoImportado {
+  nomeArquivo: string;
+  enviadoEm: Date;
+}
+
 /** Campos editáveis de um item de cupom — edição parcial (nunca inclui categoria, que tem fluxo próprio). */
 export interface DadosItemCupom {
   nomeProduto?: string;

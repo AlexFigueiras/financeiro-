@@ -110,12 +110,26 @@ body {
   border-radius: 8px; padding: 14px 16px; cursor: pointer;
   display: flex; flex-direction: column; gap: 2px;
   transition: border-color 120ms, background 120ms;
+  position: relative;
 }
 .dropzone span { font-size: 12.5px; color: var(--ink-secundario); }
 .dropzone:hover, .dropzone.arrastando {
   border-color: var(--foco);
 }
-.dropzone.enviando { opacity: 0.6; pointer-events: none; }
+.dropzone.enviando { pointer-events: none; }
+.dropzone.enviando strong, .dropzone.enviando span { opacity: 0.35; }
+.dropzone.enviando::after {
+  content: '';
+  position: absolute; top: 50%; left: 50%;
+  width: 20px; height: 20px; margin: -10px 0 0 -10px;
+  border: 2.5px solid var(--grade); border-top-color: var(--foco);
+  border-radius: 50%;
+  animation: dropzone-girar 700ms linear infinite;
+}
+@keyframes dropzone-girar { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) {
+  .dropzone.enviando::after { animation-duration: 1600ms; }
+}
 
 .feedback {
   border: 1px solid var(--borda); border-left: 4px solid var(--foco);
@@ -286,3 +300,117 @@ td.col-valor { font-variant-numeric: tabular-nums; text-align: right; font-weigh
 .col-acoes { width: 84px; text-align: right; }
 td.col-acoes { text-align: right; white-space: nowrap; }
 td.col-acoes .btn-icone + .btn-icone { margin-left: 4px; }
+
+/* ---- Perfil e Dropdown --------------------------------------------------- */
+.perfil-container {
+  position: relative;
+  display: inline-block;
+}
+
+.btn-perfil {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 1px solid var(--borda);
+  background: linear-gradient(135deg, var(--foco), #9085e9);
+  color: #ffffff;
+  font-weight: 600;
+  font-size: 13.5px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  padding: 0;
+  transition: transform 150ms ease, box-shadow 150ms ease;
+  user-select: none;
+}
+
+.btn-perfil:hover {
+  transform: scale(1.05);
+  box-shadow: 0 0 8px rgba(42, 120, 214, 0.4);
+}
+
+.btn-perfil:focus-visible {
+  outline: 2px solid var(--foco);
+  outline-offset: 1px;
+}
+
+.perfil-dropdown {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 8px);
+  width: 200px;
+  background: var(--superficie);
+  border: 1px solid var(--borda);
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  padding: 8px 0;
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  animation: slideDown 150ms ease-out forwards;
+}
+
+.perfil-dropdown[hidden] {
+  display: none !important;
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.perfil-info {
+  padding: 8px 12px 4px 12px;
+  display: flex;
+  flex-direction: column;
+}
+
+.perfil-email {
+  font-size: 12px;
+  color: var(--ink-secundario);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-weight: 500;
+}
+
+.dropdown-divisor {
+  border: 0;
+  border-top: 1px solid var(--borda);
+  margin: 6px 0;
+}
+
+.dropdown-item {
+  background: none;
+  border: none;
+  font: inherit;
+  font-size: 13px;
+  color: var(--ink-primario);
+  text-align: left;
+  padding: 8px 12px;
+  cursor: pointer;
+  width: 100%;
+  transition: background-color 100ms;
+}
+
+.dropdown-item:hover {
+  background-color: var(--borda);
+}
+
+.dropdown-item:focus {
+  outline: none;
+  background-color: var(--borda);
+}
+
+.btn-sair-dropdown {
+  color: var(--gastos);
+  text-decoration: none;
+}
+

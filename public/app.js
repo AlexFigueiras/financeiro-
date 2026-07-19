@@ -44,7 +44,10 @@
     }
     const corpo = await resposta.json().catch(() => ({}));
     if (!resposta.ok) {
-      throw new Error(corpo.erro || `Falha na requisição (${resposta.status}).`);
+      const erro = new Error(corpo.erro || `Falha na requisição (${resposta.status}).`);
+      erro.status = resposta.status;
+      erro.detalhes = corpo.detalhes ?? null;
+      throw erro;
     }
     return corpo;
   }
@@ -106,30 +109,56 @@
   }
 
   // ---- Uploads (dropzones) --------------------------------------------------------
-  function configurarDropzone(idZona, idInput, url, nomeAmigavel) {
+  function configurarDropzone(idZona, idInput, url, nomeAmigavel, textoProcessando) {
     const zona = $(idZona);
     const input = $(idInput);
     const permiteMultiplo = input.multiple;
+    const legenda = zona.querySelector('span');
+    const legendaOriginal = legenda.textContent;
 
-    const enviar = async (arquivos) => {
+    const montarFormulario = (arquivos, forcar) => {
+      const form = new FormData();
+      if (permiteMultiplo) {
+        for (let i = 0; i < arquivos.length; i++) {
+          form.append('arquivo', arquivos[i]);
+        }
+      } else {
+        form.append('arquivo', arquivos[0]);
+      }
+      if (forcar) form.append('forcar', 'true');
+      return form;
+    };
+
+    const enviar = async (arquivos, forcar = false) => {
       if (!arquivos || arquivos.length === 0) return;
       zona.classList.add('enviando');
+      if (textoProcessando) legenda.textContent = textoProcessando;
       try {
-        const form = new FormData();
-        if (permiteMultiplo) {
-          for (let i = 0; i < arquivos.length; i++) {
-            form.append('arquivo', arquivos[i]);
-          }
-        } else {
-          form.append('arquivo', arquivos[0]);
-        }
-        const r = await chamarApi(url, { method: 'POST', body: form });
+        // O spinner (classe .enviando) só some no finally, depois do await abaixo —
+        // ou seja, continua girando até os valores atualizados aparecerem na tela.
+        const r = await chamarApi(url, { method: 'POST', body: montarFormulario(arquivos, forcar) });
         mostrarFeedback(`${nomeAmigavel}: ${r.mensagem} ${resumoUpload(r)}`, 'sucesso');
         await atualizarTudo();
       } catch (erro) {
-        mostrarFeedback(`${nomeAmigavel}: ${erro.message}`, 'erro');
+        // Reenvio do mesmo arquivo detectado pelo backend (409 + detalhes.duplicado):
+        // pergunta em vez de simplesmente falhar em silêncio.
+        if (erro.status === 409 && erro.detalhes && erro.detalhes.duplicado) {
+          zona.classList.remove('enviando');
+          legenda.textContent = legendaOriginal;
+          const processarMesmoAssim = confirm(
+            `${erro.message}\n\nDeseja processar mesmo assim?`
+          );
+          if (processarMesmoAssim) {
+            await enviar(arquivos, true);
+            return;
+          }
+          mostrarFeedback(`${nomeAmigavel}: envio cancelado (arquivo já importado).`, '');
+        } else {
+          mostrarFeedback(`${nomeAmigavel}: ${erro.message}`, 'erro');
+        }
       } finally {
         zona.classList.remove('enviando');
+        legenda.textContent = legendaOriginal;
         input.value = '';
       }
     };
@@ -176,12 +205,105 @@
     }
   }
 
+  function configurarPerfil(config) {
+    const btnPerfil = $('btn-perfil');
+    const dropdown = $('perfil-dropdown');
+    const emailEl = $('perfil-email');
+    const letraEl = $('perfil-letra');
+    const btnLimpar = $('btn-limpar-mes');
+
+    function atualizarDadosPerfil() {
+      if (MODO_DEMO) {
+        emailEl.textContent = 'demo@exemplo.com';
+        letraEl.textContent = 'D';
+        return;
+      }
+
+      if (config.authMode === 'off') {
+        emailEl.textContent = 'Modo Local';
+        letraEl.textContent = 'L';
+        return;
+      }
+
+      const sessao = window.Auth.sessaoAtual();
+      if (sessao && sessao.email) {
+        emailEl.textContent = sessao.email;
+        letraEl.textContent = sessao.email.charAt(0).toUpperCase();
+      } else {
+        emailEl.textContent = 'usuario@exemplo.com';
+        letraEl.textContent = 'U';
+      }
+    }
+
+    atualizarDadosPerfil();
+
+    btnPerfil.addEventListener('click', (e) => {
+      e.stopPropagation();
+      dropdown.hidden = !dropdown.hidden;
+    });
+
+    document.addEventListener('click', (e) => {
+      if (!btnPerfil.contains(e.target) && !dropdown.contains(e.target)) {
+        dropdown.hidden = true;
+      }
+    });
+
+    btnLimpar.addEventListener('click', async () => {
+      dropdown.hidden = true;
+      const mes = mesSelecionado();
+      const [ano, numMes] = mes.split('-');
+      const nomeMeses = [
+        'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
+        'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'
+      ];
+      const mesFormatado = `${nomeMeses[parseInt(numMes, 10) - 1]} de ${ano}`;
+
+      const confirmou = confirm(
+        `ATENÇÃO: Deseja realmente apagar todas as transações, cupons fiscais e arquivos importados de ${mesFormatado}?\n\n` +
+        `Esta ação é IRREVERSÍVEL e atualizará o saldo de todas as contas.`
+      );
+
+      if (!confirmou) return;
+
+      btnLimpar.disabled = true;
+      const textoOriginal = btnLimpar.textContent;
+      btnLimpar.textContent = 'Limpando...';
+
+      try {
+        if (MODO_DEMO) {
+          mostrarFeedback(`[Demo] Dados de ${mesFormatado} limpos com sucesso.`, 'sucesso');
+          await atualizarTudo();
+          return;
+        }
+
+        const r = await chamarApi('/api/transacoes/limpar-mes', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ mes }),
+        });
+
+        mostrarFeedback(
+          `${r.mensagem} (${r.transacoesExcluidas} transação(ões) e ${r.cuponsExcluidos} cupom(ns) removidos).`,
+          'sucesso'
+        );
+        await atualizarTudo();
+      } catch (erro) {
+        mostrarFeedback(`Erro ao limpar mês: ${erro.message}`, 'erro');
+      } finally {
+        btnLimpar.disabled = false;
+        btnLimpar.textContent = textoOriginal;
+      }
+    });
+
+    return atualizarDadosPerfil;
+  }
+
   async function iniciar() {
     const agora = new Date();
     $('seletor-mes').value = `${agora.getFullYear()}-${String(agora.getMonth() + 1).padStart(2, '0')}`;
     $('seletor-mes').addEventListener('change', atualizarTudo);
-    configurarDropzone('dropzone-ofx', 'input-ofx', '/api/extrato/upload-ofx', 'Extrato OFX');
-    configurarDropzone('dropzone-cupom', 'input-cupom', '/api/cupons/upload', 'Cupom fiscal');
+    configurarDropzone('dropzone-ofx', 'input-ofx', '/api/extrato/upload-ofx', 'Extrato OFX', 'Lendo o extrato... aguarde');
+    configurarDropzone('dropzone-cupom', 'input-cupom', '/api/cupons/upload', 'Cupom fiscal', 'Lendo com IA... aguarde');
     window.ContasUI.configurarContas(chamarApi, atualizarTudo);
     window.TransacaoForm.configurar(chamarApi, atualizarTudo);
     window.ItemCupomForm.configurar(chamarApi, atualizarTudo);
@@ -208,11 +330,15 @@
         btn.textContent = textoOriginal;
       }
     });
-    window.LoginUI.configurarLogin(() =>
-      carregarCategoriasMenu()
+
+    let atualizarPerfil;
+
+    window.LoginUI.configurarLogin(() => {
+      if (atualizarPerfil) atualizarPerfil();
+      return carregarCategoriasMenu()
         .then(() => atualizarTudo())
-        .then(() => window.ContasUI.garantirConta(chamarApi))
-    );
+        .then(() => window.ContasUI.garantirConta(chamarApi));
+    });
     // Redesenha os gráficos quando o SO alterna claro/escuro (tokens mudam)
     window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', atualizarTudo);
 
@@ -225,11 +351,16 @@
       aviso.className = 'feedback';
       aviso.hidden = false;
       clearTimeout(feedbackTimer); // banner permanente no demo
+      
+      atualizarPerfil = configurarPerfil({ authMode: 'off' });
+      
       carregarCategoriasMenu().then(() => atualizarTudo());
       return;
     }
 
     const config = await window.Auth.carregarConfig();
+    atualizarPerfil = configurarPerfil(config);
+
     if (config.authMode === 'off' || (await window.Auth.tokenValido())) {
       window.LoginUI.mostrarApp();
       $('btn-sair').hidden = config.authMode === 'off';

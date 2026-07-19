@@ -29,6 +29,7 @@ function fakeRepo(overrides: Partial<TransacoesRepository> = {}): TransacoesRepo
     async atualizar() { return TRANSACAO_FAKE; },
     async excluir() {},
     async recategorizarTodas() { return 0; },
+    async limparMes() { return { transacoesExcluidas: 0, cuponsExcluidos: 0, arquivosExcluidos: 0 }; },
     ...overrides,
   };
 }
@@ -214,5 +215,31 @@ describe('transacoesService.recategorizarTodas', () => {
     expect(chamouSeed).toBe(true);
     expect(chamouRepo).toBe(true);
     expect(total).toBe(5);
+  });
+
+  describe('limparMes', () => {
+    it('falha se o mês não estiver no formato correto YYYY-MM', async () => {
+      const service = criarTransacoesService(fakeRepo(), fakeCategorias(true), fakeContas(true));
+      await expect(service.limparMes('t1', '2026-1')).rejects.toThrow('Parâmetro mes deve estar no formato YYYY-MM.');
+      await expect(service.limparMes('t1', 'janeiro')).rejects.toThrow('Parâmetro mes deve estar no formato YYYY-MM.');
+    });
+
+    it('delega ao repositório se o mês for válido', async () => {
+      let mesRecebido = '';
+      let tenantRecebido = '';
+      const repo = fakeRepo({
+        async limparMes(tenantId, mes) {
+          tenantRecebido = tenantId;
+          mesRecebido = mes;
+          return { transacoesExcluidas: 10, cuponsExcluidos: 5, arquivosExcluidos: 2 };
+        }
+      });
+      const service = criarTransacoesService(repo, fakeCategorias(true), fakeContas(true));
+      const res = await service.limparMes('tenant-abc', '2026-06');
+      
+      expect(tenantRecebido).toBe('tenant-abc');
+      expect(mesRecebido).toBe('2026-06');
+      expect(res).toEqual({ transacoesExcluidas: 10, cuponsExcluidos: 5, arquivosExcluidos: 2 });
+    });
   });
 });

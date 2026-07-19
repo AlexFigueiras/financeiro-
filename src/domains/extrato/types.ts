@@ -10,3 +10,9 @@ export interface ResultadoImportExtrato {
   importadas: number;
   ignoradasDuplicadas: number;
 }
+
+/** Registro de um arquivo já importado antes — base do aviso de reenvio duplicado. */
+export interface ArquivoImportado {
+  nomeArquivo: string;
+  enviadoEm: Date;
+}

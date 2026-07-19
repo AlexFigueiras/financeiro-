@@ -29,13 +29,15 @@ extratoRouter.post(
     }
     const tenantId = req.tenantId!;
     const contaId = await contasService.resolverContaId(tenantId, req.body.conta_id);
+    const forcar = req.body.forcar === 'true' || req.body.forcar === true;
 
     const { resultado, via } = await extratoService.importarArquivo(
       tenantId,
       contaId,
       req.file.buffer,
       req.file.mimetype,
-      req.file.originalname ?? ''
+      req.file.originalname ?? '',
+      { forcar }
     );
 
     const matches = await reconciliacaoService.reconciliarSeguro(tenantId, 'upload extrato');

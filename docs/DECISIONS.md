@@ -5,6 +5,72 @@
 
 ---
 
+## [2026-07-18] Botão de limpar dados do mês atual e menu de perfil circular
+
+- **Status:** accepted
+- **Contexto:** o usuário solicitou uma maneira rápida e completa de apagar todas as transações, cupons fiscais e arquivos importados de um mês específico caso tenha feito alguma importação incorreta ou queira resetar o período. Para manter a interface limpa e organizada, esta funcionalidade de risco (destrutiva) deve ficar resguardada dentro de um menu dropdown acessado a partir de um botão circular de Perfil na barra superior, que também contém a opção de logout (Sair).
+- **Decisão:**
+  - **Função `limparMes` no repositório de transações:** executa em uma única transação de banco (`withTenantTransaction`) a deleção das tabelas `transacoes_banco` (filtro por `data_transacao`), `cupons_fiscais` (filtro por `data_emissao` e exclusão dos itens em cascata via chave estrangeira no Postgres) e `arquivos_importados` (filtro por `criado_em`), todas restritas ao `tenant_id` e à janela temporal do mês selecionado (`YYYY-MM-01` a `YYYY-MM-01 + 1 mês`).
+  - **Trigger de consistência:** as triggers existentes no banco (`trg_atualiza_saldo`) recalculam o saldo consolidado das contas de forma consistente e automática ao excluir as transações.
+  - **Auditoria:** adicionado o registro de log durável `mes.limpo` na tabela `audit_log` com informações do mês e o total de registros apagados.
+  - **Menu de Perfil (Frontend):** adicionado um container `.perfil-container` substituindo o antigo botão "Sair" na barra superior do `index.html`. O botão de Perfil (`btn-perfil`) é circular, com um gradiente premium de fundo, exibindo a inicial do e-mail do usuário. Ao clicar, abre-se um dropdown que exibe o e-mail completo do usuário logado (ou "Modo Local" / inicial "L" se o `authMode === 'off'`), o botão "Limpar Mês Atual" e o botão "Sair" (exibido apenas se o modo de autenticação estiver ativo).
+  - **Confirmação preventiva:** no clique do botão "Limpar Mês Atual", exibe-se um modal de confirmação no navegador antes de disparar a chamada de API. Ao concluir, atualiza KPIs e gráficos.
+- **Arquivos impactados:**
+  - [ports/transacoes-repository.ts](file:///c:/Users/Pc%20direito/Projetos%20Antigravity/financeiro-/src/domains/transacoes/ports/transacoes-repository.ts)
+  - [adapters/transacoes-repository-pg.ts](file:///c:/Users/Pc%20direito/Projetos%20Antigravity/financeiro-/src/domains/transacoes/adapters/transacoes-repository-pg.ts)
+  - [services/transacoes-service.ts](file:///c:/Users/Pc%20direito/Projetos%20Antigravity/financeiro-/src/domains/transacoes/services/transacoes-service.ts)
+  - [actions/transacoes-actions.ts](file:///c:/Users/Pc%20direito/Projetos%20Antigravity/financeiro-/src/domains/transacoes/actions/transacoes-actions.ts)
+  - [transacoes-service.test.ts](file:///c:/Users/Pc%20direito/Projetos%20Antigravity/financeiro-/src/domains/transacoes/__tests__/transacoes-service.test.ts)
+  - [index.html](file:///c:/Users/Pc%20direito/Projetos%20Antigravity/financeiro-/public/index.html)
+  - [styles.css](file:///c:/Users/Pc%20direito/Projetos%20Antigravity/financeiro-/public/styles.css)
+  - [app.js](file:///c:/Users/Pc%20direito/Projetos%20Antigravity/financeiro-/public/app.js)
+
+## [2026-07-18] Aviso amigável de reenvio do mesmo arquivo (extrato ou cupom)
+
+- **Status:** accepted
+- **Contexto:** o usuário relatou que, ao reenviar sem querer o mesmo extrato ou o mesmo cupom
+  fiscal, o sistema não avisava nada — o dedup existente (`hash_ofx` em transações, validação de
+  cupom) só age *depois* de reprocessar o arquivo inteiro (inclusive OCR pago via Gemini no caso
+  de cupom/PDF), e mesmo assim não comunica ao usuário que era um reenvio; ele "esperava alto" sem
+  entender por que nada mudou no painel.
+- **Decisão:**
+  - **Nova tabela `arquivos_importados`** (migration `0004_arquivos_importados.sql`): registra
+    `(tenant_id, tipo['extrato'|'cupom'], hash_arquivo, nome_arquivo, tamanho_bytes)` com UNIQUE
+    `(tenant_id, tipo, hash_arquivo)`. Identifica o arquivo pelo **conteúdo** (sha256), não por
+    nome/tamanho/metadados isolados — um arquivo renomeado continua detectado como o mesmo, e dois
+    arquivos de mesmo nome mas conteúdo diferente não colidem.
+  - **Helper compartilhado** `src/shared/arquivos/hash-arquivo.ts`: `sha256Hex` (um arquivo) e
+    `hashConjuntoArquivos` (múltiplos arquivos — cupons longos em várias fotos, ver decisão de
+    2026-07-15). O hash do conjunto usa os hashes individuais **ordenados** antes de compor o hash
+    final, para que a mesma coleção de fotos enviada em ordem diferente gere o mesmo hash.
+  - **Checagem ANTES de processar:** `extratoService.importarArquivo` e `cupomService.processar`
+    calculam o hash e consultam `arquivos_importados` **antes** de chamar o parser OFX/OCR Gemini
+    — evita gastar OCR pago num reenvio óbvio. Se já existe, lança `AppError` 409 com
+    `details: { duplicado: true, nomeArquivo, enviadoEm }` e a mensagem cita quando foi o envio
+    anterior.
+  - **Escape hatch `forcar`:** ambas as rotas aceitam um campo de formulário `forcar=true` que pula
+    a checagem — cobre o caso legítimo (ex.: duas compras idênticas no mesmo estabelecimento no
+    mesmo dia, mesmo cupom "por acaso" com o mesmo conteúdo de bytes é extremamente raro mas o
+    usuário pode querer forçar mesmo assim).
+  - **Frontend:** `chamarApi` (`public/app.js`) agora anexa `status` e `detalhes` ao `Error`
+    lançado. `configurarDropzone` detecta `status===409 && detalhes.duplicado`, mostra um
+    `confirm()` com a mensagem amigável e, se aceito, reenvia automaticamente com `forcar=true`.
+  - **Registro do arquivo** só acontece **depois** do processamento ter sucesso (não bloqueia
+    reenvio se a primeira tentativa falhou por outro motivo, ex.: cupom inconsistente).
+- **Arquivos impactados:** `infra/db/migrations/0004_arquivos_importados.sql` (novo),
+  `src/shared/arquivos/hash-arquivo.ts` (novo) + teste,
+  `src/domains/extrato/{types,ports/extrato-repository,adapters/extrato-repository-pg,services/extrato-service,actions/extrato-actions}.ts`,
+  `src/domains/cupons/{types,ports/cupom-repository,ports/cupom-ocr-port,adapters/cupom-repository-pg,services/cupom-service,actions/cupons-actions}.ts`,
+  `public/app.js`, testes de `extrato-service` e `cupom-service`.
+- **Consequências / Gotchas:** a migration não pôde ser aplicada a partir do sandbox de
+  desenvolvimento — o host de conexão direta do Supabase (`db.<projeto>.supabase.co:5432`) só tem
+  registro DNS `AAAA` (IPv6) e o ambiente não tinha saída IPv6. Resolvido trocando `DATABASE_URL`
+  (Vercel **e** `.env` local — são envs separados, atualizar um não propaga para o outro) para a
+  connection string do "Transaction pooler" (`aws-*.pooler.supabase.com:6543`, IPv4), já
+  recomendada em `.env.example`/`RUNBOOK.md` para deploys serverless por causa do limite de
+  conexões concorrentes — troca que resolve os dois problemas de uma vez. Migration aplicada e
+  confirmada (`npm run db:migrate` → "Banco já está atualizado").
+
 ## [2026-07-15] Suporte a cupons fiscais longos em múltiplas fotos com deduplicação multimodal no Gemini
 
 - **Status:** accepted

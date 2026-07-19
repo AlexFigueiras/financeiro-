@@ -228,4 +228,40 @@ export const transacoesRepositoryPg: TransacoesRepository = {
       return total;
     });
   },
+
+  async limparMes(tenantId: string, mes: string) {
+    return withTenantTransaction(tenantId, async (client) => {
+      const mesInicio = `${mes}-01`;
+
+      const transacoesRes = await client.query(
+        `DELETE FROM transacoes_banco
+         WHERE tenant_id = $1
+           AND data_transacao >= ($2::timestamp AT TIME ZONE '${TZ}')
+           AND data_transacao < (($2::timestamp + INTERVAL '1 month') AT TIME ZONE '${TZ}')`,
+        [tenantId, mesInicio]
+      );
+
+      const cuponsRes = await client.query(
+        `DELETE FROM cupons_fiscais
+         WHERE tenant_id = $1
+           AND data_emissao >= ($2::timestamp AT TIME ZONE '${TZ}')
+           AND data_emissao < (($2::timestamp + INTERVAL '1 month') AT TIME ZONE '${TZ}')`,
+        [tenantId, mesInicio]
+      );
+
+      const arquivosRes = await client.query(
+        `DELETE FROM arquivos_importados
+         WHERE tenant_id = $1
+           AND criado_em >= ($2::timestamp AT TIME ZONE '${TZ}')
+           AND criado_em < (($2::timestamp + INTERVAL '1 month') AT TIME ZONE '${TZ}')`,
+        [tenantId, mesInicio]
+      );
+
+      return {
+        transacoesExcluidas: transacoesRes.rowCount ?? 0,
+        cuponsExcluidos: cuponsRes.rowCount ?? 0,
+        arquivosExcluidos: arquivosRes.rowCount ?? 0,
+      };
+    });
+  },
 };
