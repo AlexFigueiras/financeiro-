@@ -5,6 +5,14 @@
 
 ---
 
+## [2026-07-30] Registro de AppErrors (4xx) nos logs de observabilidade (Vercel Serverless)
+
+- **Status:** accepted
+- **Contexto:** quando ocorria uma exceção de domínio `AppError` (como status 422 na validação de cupons fiscais por OCR), o `errorHandler` respondia com JSON diretamente ao cliente HTTP, mas não gerava registros no `logger`. No ambiente Vercel Serverless, isso resultava na mensagem *"No logs found for this request"*, dificultando o rastreio da razão da recusa no painel do Vercel.
+- **Decisão:** adicionar `logger.warn` na captura de `AppError` dentro de `src/shared/errors/error-handler.ts`, garantindo que todas as falhas de validação de domínio e erros 4xx fiquem registradas nos logs do servidor.
+- **Arquivos impactados:** [error-handler.ts](file:///c:/Users/pcDev/financeiro-/src/shared/errors/error-handler.ts)
+- **Consequências / Gotchas:** permite diagnosticar motivos exatos de recusa de requisições 4xx diretamente pelos logs da Vercel em produção.
+
 ## [2026-07-18] Botão de limpar dados do mês atual e menu de perfil circular
 
 - **Status:** accepted
