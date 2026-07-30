@@ -11,6 +11,7 @@ export function errorHandler(
 ): void {
   if (err instanceof AppError) {
     incrementar('http_erros_total', { status: String(err.status) });
+    logger.warn({ status: err.status, erro: err.message, detalhes: err.details }, `[AppError ${err.status}] ${err.message}`);
     res.status(err.status).json({ erro: err.message, detalhes: err.details ?? null });
     return;
   }
