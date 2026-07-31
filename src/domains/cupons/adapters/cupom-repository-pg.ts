@@ -45,6 +45,50 @@ export const cupomRepositoryPg: CupomRepository = {
     });
   },
 
+  async criarManual(tenantId, dados) {
+    return withTenantTransaction(tenantId, async (client) => {
+      const itens = dados.itens ?? [];
+      const valorTotal = itens.reduce(
+        (acc, i) => acc + Math.round((Number(i.quantidade) || 1) * (Number(i.precoUnitario) || 0) * 100) / 100,
+        0
+      );
+
+      const payloadJson = JSON.stringify({
+        origem: 'manual',
+        estabelecimento: dados.estabelecimento.trim(),
+        data_emissao: dados.dataEmissao,
+        valor_total: valorTotal,
+        itens,
+      });
+
+      const cupom = await client.query<{ id: number }>(
+        `INSERT INTO cupons_fiscais (tenant_id, data_emissao, valor_total, estabelecimento, json_bruto_ia)
+         VALUES ($1, $2, $3, $4, $5)
+         RETURNING id`,
+        [tenantId, dados.dataEmissao, valorTotal, dados.estabelecimento.trim(), payloadJson]
+      );
+      const cupomId = cupom.rows[0].id;
+
+      for (const item of itens) {
+        const subtotal = Math.round((Number(item.quantidade) || 1) * (Number(item.precoUnitario) || 0) * 100) / 100;
+        await client.query(
+          `INSERT INTO itens_cupom (tenant_id, cupom_id, nome_produto, quantidade, preco_unitario, valor_total, categoria)
+           VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+          [
+            tenantId,
+            cupomId,
+            item.nomeProduto.trim(),
+            Number(item.quantidade) > 0 ? Number(item.quantidade) : 1,
+            Number(item.precoUnitario) || 0,
+            subtotal,
+            (item.categoria ?? 'outros').toLowerCase().trim() || 'outros',
+          ]
+        );
+      }
+      return cupomId;
+    });
+  },
+
   async buscarComItens(tenantId, cupomId): Promise<CupomComItens | null> {
     return withTenantTransaction(tenantId, async (client) => {
       const cupom = await client.query(
@@ -165,6 +209,42 @@ export const cupomRepositoryPg: CupomRepository = {
 
       await client.query('DELETE FROM itens_cupom WHERE id = $1 AND tenant_id = $2', [itemId, tenantId]);
       await recalcularTotalCupom(client, tenantId, cupomId);
+    });
+  },
+
+  async adicionarItem(tenantId, cupomId, item) {
+    await withTenantTransaction(tenantId, async (client) => {
+      const cupomRes = await client.query('SELECT 1 FROM cupons_fiscais WHERE id = $1 AND tenant_id = $2', [
+        cupomId,
+        tenantId,
+      ]);
+      if (cupomRes.rowCount === 0) throw new AppError('Cupom fiscal não encontrado.', 404);
+
+      const quantidade = Number(item.quantidade) > 0 ? Number(item.quantidade) : 1;
+      const precoUnitario = Number(item.precoUnitario) || 0;
+      const subtotal = Math.round(quantidade * precoUnitario * 100) / 100;
+      const categoria = (item.categoria ?? 'outros').toLowerCase().trim() || 'outros';
+
+      await client.query(
+        `INSERT INTO itens_cupom (tenant_id, cupom_id, nome_produto, quantidade, preco_unitario, valor_total, categoria)
+         VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+        [tenantId, cupomId, item.nomeProduto.trim(), quantidade, precoUnitario, subtotal, categoria]
+      );
+      await recalcularTotalCupom(client, tenantId, cupomId);
+    });
+  },
+
+  async excluirCupom(tenantId, cupomId) {
+    await withTenantTransaction(tenantId, async (client) => {
+      await client.query('UPDATE transacoes_banco SET cupom_id = NULL WHERE cupom_id = $1 AND tenant_id = $2', [
+        cupomId,
+        tenantId,
+      ]);
+      const res = await client.query('DELETE FROM cupons_fiscais WHERE id = $1 AND tenant_id = $2', [
+        cupomId,
+        tenantId,
+      ]);
+      if (res.rowCount === 0) throw new AppError('Cupom fiscal não encontrado.', 404);
     });
   },
 

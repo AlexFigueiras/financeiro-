@@ -1,7 +1,8 @@
-import { ArquivoImportado, CupomGemini, CupomComItens, DadosItemCupom } from '../types';
+import { ArquivoImportado, CupomGemini, CupomComItens, DadosItemCupom, DadosCriarCupomManual, DadosNovoItemCupom } from '../types';
 
 export interface CupomRepository {
   salvar(tenantId: string, dados: CupomGemini, dataEmissaoIso: string): Promise<number>;
+  criarManual(tenantId: string, dados: DadosCriarCupomManual): Promise<number>;
 
   /** Retorna o registro do envio (por hash do conjunto de arquivos) se ele já aconteceu antes. */
   buscarArquivoImportado(tenantId: string, hashArquivo: string): Promise<ArquivoImportado | null>;
@@ -15,6 +16,8 @@ export interface CupomRepository {
   atualizarCategoriaItem(tenantId: string, itemId: number, categoriaChave: string): Promise<void>;
   categoriaExiste(tenantId: string, categoriaChave: string): Promise<boolean>;
   atualizarItem(tenantId: string, itemId: number, dados: DadosItemCupom): Promise<void>;
+  adicionarItem(tenantId: string, cupomId: number, item: DadosNovoItemCupom): Promise<void>;
   excluirItem(tenantId: string, itemId: number): Promise<void>;
+  excluirCupom(tenantId: string, cupomId: number): Promise<void>;
   listarPendentes(tenantId: string): Promise<Array<{ id: number; dataEmissao: string; valorTotal: number; estabelecimento: string }>>;
 }

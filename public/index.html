@@ -129,6 +129,64 @@
     </form>
   </div>
 
+  <div id="modal-novo-cupom" class="modal-overlay" hidden>
+    <form id="form-novo-cupom" class="painel modal-card modal-card-largo" aria-label="Novo Cupom Fiscal">
+      <h2>Novo Cupom Fiscal (Manual)</h2>
+      <p class="painel-sub">Cadastre os dados da nota fiscal perdida ou amassada.</p>
+      <label for="novo-cupom-estabelecimento">Estabelecimento</label>
+      <input type="text" id="novo-cupom-estabelecimento" required minlength="2" placeholder="Ex.: Supermercado Carrefour">
+      <label for="novo-cupom-data">Data de Emissão</label>
+      <input type="date" id="novo-cupom-data" required>
+      
+      <div class="itens-header-form">
+        <label>Itens da Nota Fiscal</label>
+        <button type="button" id="btn-add-linha-item" class="btn btn-secundario">+ Adicionar Produto</button>
+      </div>
+      <div id="novo-cupom-itens-lista" class="novo-cupom-itens-container"></div>
+
+      <div id="novo-cupom-erro" class="feedback erro" role="alert" hidden></div>
+      <div class="modal-acoes">
+        <button type="submit" id="btn-salvar-novo-cupom">Salvar Cupom</button>
+        <button type="button" id="btn-cancelar-novo-cupom">Cancelar</button>
+      </div>
+    </form>
+  </div>
+
+  <div id="modal-adicionar-item-cupom" class="modal-overlay" hidden>
+    <form id="form-adicionar-item-cupom" class="painel modal-card" aria-label="Adicionar item ao cupom">
+      <h2>Adicionar item ao cupom</h2>
+      <input type="hidden" id="add-item-cupom-id">
+      <label for="add-item-cupom-nome">Produto</label>
+      <input type="text" id="add-item-cupom-nome" required minlength="2" placeholder="Ex.: Leite Integral 1L">
+      <label for="add-item-cupom-quantidade">Quantidade</label>
+      <input type="number" id="add-item-cupom-quantidade" step="0.001" min="0.001" value="1" required>
+      <label for="add-item-cupom-preco">Preço unitário (R$)</label>
+      <input type="number" id="add-item-cupom-preco" step="0.01" min="0" required placeholder="Ex.: 4.50">
+      <label for="add-item-cupom-categoria">Categoria</label>
+      <select id="add-item-cupom-categoria"></select>
+      <div id="add-item-cupom-erro" class="feedback erro" role="alert" hidden></div>
+      <div class="modal-acoes">
+        <button type="submit" id="btn-salvar-add-item-cupom">Adicionar Item</button>
+        <button type="button" id="btn-cancelar-add-item-cupom">Cancelar</button>
+      </div>
+    </form>
+  </div>
+      <h2>Editar item</h2>
+      <input type="hidden" id="item-cupom-id">
+      <label for="item-cupom-nome">Produto</label>
+      <input type="text" id="item-cupom-nome" required placeholder="Ex.: Arroz 5kg">
+      <label for="item-cupom-quantidade">Quantidade</label>
+      <input type="number" id="item-cupom-quantidade" step="0.001" min="0.001" required>
+      <label for="item-cupom-preco">Preço unitário (R$)</label>
+      <input type="number" id="item-cupom-preco" step="0.01" min="0" required>
+      <div id="item-cupom-erro" class="feedback erro" role="alert" hidden></div>
+      <div class="modal-acoes">
+        <button type="submit" id="btn-salvar-item-cupom">Salvar</button>
+        <button type="button" id="btn-cancelar-item-cupom">Cancelar</button>
+      </div>
+    </form>
+  </div>
+
   <div id="app-shell" hidden>
   <header class="topbar">
     <div class="topbar-inner">
@@ -195,6 +253,11 @@
         <span>Arraste a foto/PDF do cupom ou clique — extração automática via Gemini</span>
         <input type="file" id="input-cupom" accept="image/*,.pdf" multiple hidden>
       </div>
+      <div class="dropzone btn-novo-cupom-manual" tabindex="0" role="button" id="btn-novo-cupom-manual"
+           aria-label="Digitar cupom fiscal manualmente (sem foto)">
+        <strong>+ Novo Cupom Fiscal (Manual)</strong>
+        <span>Cupom perdido ou amassado? Clique para lançar produtos e valores manualmente</span>
+      </div>
     </section>
 
     <div id="feedback" class="feedback" role="status" hidden></div>
@@ -251,6 +314,7 @@
   <script src="login-ui.js"></script>
   <script src="contas-ui.js"></script>
   <script src="categorias-ui.js"></script>
+  <script src="cupons-ui.js"></script>
   <script src="transacao-form.js"></script>
   <script src="item-cupom-form.js"></script>
   <script src="transacoes-tabela.js"></script>

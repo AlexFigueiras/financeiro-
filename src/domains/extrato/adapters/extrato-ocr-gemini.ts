@@ -6,7 +6,18 @@ import { TransacaoOfx } from '../types';
 const SYSTEM_PROMPT_EXTRATO =
   'Atue como um extrator de extratos bancários. Analise o extrato (PDF ou imagem) ' +
   'e extraia TODOS os lançamentos/transações. Para cada lançamento extraia: a data ' +
-  '(formato YYYY-MM-DD), a descrição/histórico e o valor. REGRA DE SINAL OBRIGATÓRIA: ' +
+  '(formato YYYY-MM-DD), a descrição e o valor. ' +
+  'REGRA DE DESCRIÇÃO OBRIGATÓRIA: muitos extratos têm mais de uma coluna textual por ' +
+  'lançamento — um Histórico/Tipo genérico (ex: "COMPRA CARTAO", "PIX ENVIADO", ' +
+  '"DEBITO AUTOMATICO", "TED RECEBIDA") e uma coluna de Favorecido/Recebedor/Beneficiário/ ' +
+  'Pagador/Destinatário/Nome do lojista, que traz o nome de quem recebeu ou originou o ' +
+  'pagamento. SEMPRE priorize o nome do Favorecido nessa descrição — ele identifica muito ' +
+  'melhor a categoria do gasto (ex: "UBER", "IFOOD", "POSTO SHELL", "NETFLIX") do que o ' +
+  'histórico genérico. Se o extrato trouxer as duas informações, combine-as no formato ' +
+  '"Histórico - Favorecido" (ex: "COMPRA CARTAO - POSTO SHELL LTDA", "PIX ENVIADO - JOÃO ' +
+  'DA SILVA"). Se só houver o histórico genérico (sem favorecido), use-o normalmente. ' +
+  'NUNCA descarte o nome do favorecido quando ele estiver disponível no extrato. ' +
+  'REGRA DE SINAL OBRIGATÓRIA: ' +
   'valor NEGATIVO para débitos/saídas/pagamentos/compras/saques/transferências enviadas; ' +
   'valor POSITIVO para créditos/entradas/depósitos/recebimentos/transferências recebidas. ' +
   'IGNORE linhas de saldo (SALDO ANTERIOR, SALDO DO DIA, SALDO ATUAL, SALDO FINAL, ' +

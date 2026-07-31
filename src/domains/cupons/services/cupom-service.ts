@@ -126,6 +126,104 @@ export function criarCupomService(ocr: CupomOcrPort, repo: CupomRepository) {
       await repo.excluirItem(tenantId, itemId);
     },
 
+    async adicionarItem(
+      tenantId: string,
+      cupomId: number,
+      corpo: { nome_produto?: unknown; quantidade?: unknown; preco_unitario?: unknown; categoria?: unknown }
+    ): Promise<void> {
+      if (!cupomId || isNaN(cupomId)) throw new AppError('ID de cupom inválido.', 400);
+
+      const nomeProduto = typeof corpo.nome_produto === 'string' ? corpo.nome_produto.trim() : '';
+      if (!nomeProduto || nomeProduto.length < 2) {
+        throw new AppError('Nome do produto é obrigatório (mínimo 2 caracteres).', 400);
+      }
+
+      const quantidade = Number(corpo.quantidade);
+      if (isNaN(quantidade) || quantidade <= 0) throw new AppError('Quantidade inválida (deve ser positiva).', 400);
+
+      const precoUnitario = Number(corpo.preco_unitario);
+      if (isNaN(precoUnitario) || precoUnitario < 0) throw new AppError('Preço unitário inválido.', 400);
+
+      const categoria = typeof corpo.categoria === 'string' && corpo.categoria.trim() ? corpo.categoria.trim() : 'outros';
+
+      await repo.adicionarItem(tenantId, cupomId, {
+        nomeProduto,
+        quantidade,
+        precoUnitario: Math.round(precoUnitario * 100) / 100,
+        categoria,
+      });
+    },
+
+    async criarManual(
+      tenantId: string,
+      corpo: { estabelecimento?: unknown; data_emissao?: unknown; itens?: unknown }
+    ): Promise<ResultadoCupom> {
+      const estabelecimento = typeof corpo.estabelecimento === 'string' ? corpo.estabelecimento.trim() : '';
+      if (!estabelecimento || estabelecimento.length < 2) {
+        throw new AppError('Estabelecimento é obrigatório (mínimo 2 caracteres).', 400);
+      }
+
+      const dataEmissaoRaw = typeof corpo.data_emissao === 'string' ? corpo.data_emissao.trim() : '';
+      const dataEmissao = normalizarDataEmissao(dataEmissaoRaw || new Date().toISOString());
+
+      const itensRaw = Array.isArray(corpo.itens) ? corpo.itens : [];
+      const itensValidados = itensRaw.map((i: any, idx: number) => {
+        const nomeProduto = typeof i.nome_produto === 'string' ? i.nome_produto.trim() : '';
+        if (!nomeProduto || nomeProduto.length < 2) {
+          throw new AppError(`Item #${idx + 1}: nome do produto é obrigatório (mínimo 2 caracteres).`, 400);
+        }
+        const quantidade = Number(i.quantidade);
+        if (isNaN(quantidade) || quantidade <= 0) {
+          throw new AppError(`Item #${idx + 1}: quantidade inválida.`, 400);
+        }
+        const precoUnitario = Number(i.preco_unitario);
+        if (isNaN(precoUnitario) || precoUnitario < 0) {
+          throw new AppError(`Item #${idx + 1}: preço unitário inválido.`, 400);
+        }
+        const categoria = typeof i.categoria === 'string' && i.categoria.trim() ? i.categoria.trim() : 'outros';
+        return {
+          nomeProduto,
+          quantidade,
+          precoUnitario: Math.round(precoUnitario * 100) / 100,
+          categoria,
+        };
+      });
+
+      const cupomId = await repo.criarManual(tenantId, {
+        estabelecimento,
+        dataEmissao,
+        itens: itensValidados,
+      });
+
+      const valorTotal = itensValidados.reduce(
+        (soma, item) => soma + Math.round(item.quantidade * item.precoUnitario * 100) / 100,
+        0
+      );
+
+      const resultado: ResultadoCupom = {
+        cupomId,
+        estabelecimento,
+        dataEmissao,
+        valorTotal,
+        itens: itensValidados.length,
+      };
+
+      await publicar('cupom.processado.v1', {
+        tenantId,
+        cupomId,
+        estabelecimento: resultado.estabelecimento,
+        valorTotal: resultado.valorTotal,
+        itens: resultado.itens,
+      });
+
+      return resultado;
+    },
+
+    async excluirCupom(tenantId: string, cupomId: number): Promise<void> {
+      if (!cupomId || isNaN(cupomId)) throw new AppError('ID de cupom inválido.', 400);
+      await repo.excluirCupom(tenantId, cupomId);
+    },
+
     async listarPendentes(tenantId: string) {
       return repo.listarPendentes(tenantId);
     },

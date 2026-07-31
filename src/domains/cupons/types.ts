@@ -52,3 +52,16 @@ export interface DadosItemCupom {
   precoUnitario?: number;
   valorTotal?: number;
 }
+
+export interface DadosNovoItemCupom {
+  nomeProduto: string;
+  quantidade: number;
+  precoUnitario: number;
+  categoria?: string;
+}
+
+export interface DadosCriarCupomManual {
+  estabelecimento: string;
+  dataEmissao: string;
+  itens?: DadosNovoItemCupom[];
+}

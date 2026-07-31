@@ -317,6 +317,9 @@
     }
     window.TransacaoForm.configurar(chamarApi, atualizarTudo);
     window.ItemCupomForm.configurar(chamarApi, atualizarTudo);
+    if (window.CuponsUI) {
+      window.CuponsUI.configurar(chamarApi, atualizarTudo, () => listaCategorias);
+    }
     window.TransacoesTabela.configurar({
       chamarApi,
       mostrarFeedback,

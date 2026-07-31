@@ -437,4 +437,18 @@ td.col-acoes .btn-icone + .btn-icone { margin-left: 4px; }
   border: 1px solid var(--borda); border-radius: 4px; width: 40px; height: 32px; cursor: pointer; background: var(--superficie);
 }
 
+/* ---- Cupons Manuais e Itens --------------------------------------------- */
+#btn-salvar-novo-cupom, #btn-salvar-add-item-cupom { background: var(--foco); color: #fff; border-color: var(--foco); }
+
+.modal-card-largo { max-width: 580px; width: 92%; }
+.itens-header-form { display: flex; justify-content: space-between; align-items: center; margin: 12px 0 6px; }
+.novo-cupom-itens-container { display: flex; flex-direction: column; gap: 6px; max-height: 220px; overflow-y: auto; margin-bottom: 12px; }
+.linha-item-cupom-form { display: flex; gap: 6px; align-items: center; }
+.linha-item-cupom-form .item-nome-input { flex: 2; }
+.linha-item-cupom-form .item-qtd-input { width: 70px; }
+.linha-item-cupom-form .item-preco-input { width: 100px; }
+.linha-item-cupom-form .item-cat-select { flex: 1; }
+.titulo-cupom-acoes { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; margin-bottom: 8px; }
+
+
 

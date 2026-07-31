@@ -3,6 +3,36 @@
 > Entradas no topo (mais recente primeiro), formato ADR resumido. Decisões estruturais maiores
 > ganham um ADR completo numerado em `docs/adr/`. Ver `AGENTS.md` §2.1 para quando registrar.
 
+## [2026-07-30] CRUD de Cupons Fiscais (Criação Manual, Adição de Itens e Exclusão)
+
+- **Status:** accepted
+- **Contexto:** o sistema dependia exclusivamente do OCR via IA (Gemini) para gerar cupons fiscais. Nos casos em que o cupom impresso foi perdido, amassado ou ilegível, o usuário não tinha uma forma de cadastrar o cupom manualmente com seus itens ou adicionar novos produtos a um cupom existente.
+- **Decisão:**
+  - Adicionar ao repositório e serviço de cupons (`src/domains/cupons/`) os métodos `criarManual`, `adicionarItem` e `excluirCupom`.
+  - Expor as rotas REST `POST /api/cupons` (criação manual), `POST /api/cupons/:id/itens` (adição individual de produto ao cupom) e `DELETE /api/cupons/:id` (exclusão transacional do cupom e desvinculação da transação).
+  - Executar a reconciliação automática de forma transparente quando um cupom manual é cadastrado.
+  - Criar a interface visual no frontend (`public/cupons-ui.js`, `#modal-novo-cupom` e `#modal-adicionar-item-cupom`), permitindo criar cupons manuais com múltiplas linhas de itens e adicionar/excluir itens e cupons diretamente a partir do accordion da tabela de transações.
+- **Arquivos impactados:**
+  - [src/domains/cupons/ports/cupom-repository.ts](file:///c:/Users/Pc%20direito/Projetos%20Antigravity/financeiro-/src/domains/cupons/ports/cupom-repository.ts)
+  - [src/domains/cupons/adapters/cupom-repository-pg.ts](file:///c:/Users/Pc%20direito/Projetos%20Antigravity/financeiro-/src/domains/cupons/adapters/cupom-repository-pg.ts)
+  - [src/domains/cupons/services/cupom-service.ts](file:///c:/Users/Pc%20direito/Projetos%20Antigravity/financeiro-/src/domains/cupons/services/cupom-service.ts)
+  - [src/domains/cupons/actions/cupons-actions.ts](file:///c:/Users/Pc%20direito/Projetos%20Antigravity/financeiro-/src/domains/cupons/actions/cupons-actions.ts)
+  - [public/cupons-ui.js](file:///c:/Users/Pc%20direito/Projetos%20Antigravity/financeiro-/public/cupons-ui.js)
+  - [public/index.html](file:///c:/Users/Pc%20direito/Projetos%20Antigravity/financeiro-/public/index.html)
+- **Consequências / Gotchas:** permite resolver falhas de leitura do OCR e lançar notas perdidas com reconciliação imediata com transações bancárias.
+
+---
+
+## [2026-07-30] Priorizar coluna "Favorecido" na descrição extraída por OCR de extrato
+
+- **Status:** accepted
+- **Contexto:** ao ler extratos em PDF/imagem via Gemini (`extratoOcrGemini`), a IA vinha extraindo a coluna de Histórico/Tipo genérico (ex: "COMPRA CARTAO", "PIX ENVIADO") como descrição da transação, ignorando a coluna de Favorecido/Recebedor/Beneficiário quando presente no extrato. Isso prejudicava a categorização automática, já que o nome do favorecido (ex: "UBER", "IFOOD", "POSTO SHELL") entrega a categoria com muito mais precisão do que um histórico genérico.
+- **Decisão:** ajustar `SYSTEM_PROMPT_EXTRATO` em `src/domains/extrato/adapters/extrato-ocr-gemini.ts` para instruir o modelo a sempre priorizar o nome do Favorecido/Recebedor/Beneficiário na descrição retornada, combinando-o com o histórico (formato "Histórico - Favorecido") quando ambos existirem no extrato.
+- **Arquivos impactados:** [src/domains/extrato/adapters/extrato-ocr-gemini.ts](file:///c:/Users/Pc%20direito/Projetos%20Antigravity/financeiro-/src/domains/extrato/adapters/extrato-ocr-gemini.ts)
+- **Consequências / Gotchas:** melhora a taxa de acerto da categorização automática de transações importadas via OCR; não afeta extratos OFX (parser determinístico, sem IA).
+
+---
+
 ## [2026-07-30] CRUD de Categorias de Gasto e Rotas REST no Domínio Categorias
 
 - **Status:** accepted

@@ -31,7 +31,17 @@ export function validarCupom(dados: CupomGemini): void {
 
 /** Interpreta a data extraída como horário de Brasília quando não houver fuso explícito. */
 export function normalizarDataEmissao(raw: string): string {
-  const temFuso = /[zZ]|[+-]\d{2}:?\d{2}$/.test(raw.trim());
-  const base = raw.trim().replace(' ', 'T');
-  return temFuso ? new Date(base).toISOString() : new Date(`${base}-03:00`).toISOString();
+  const trimmed = raw.trim();
+  const temFuso = /[zZ]|[+-]\d{2}:?\d{2}$/.test(trimmed);
+  let base = trimmed.replace(' ', 'T');
+  if (!temFuso && !base.includes('T')) {
+    base = `${base}T12:00:00`;
+  }
+  const d = temFuso ? new Date(base) : new Date(`${base}-03:00`);
+  if (isNaN(d.getTime())) {
+    const fallback = new Date(trimmed);
+    if (!isNaN(fallback.getTime())) return fallback.toISOString();
+    throw new AppError(`Data de emissão inválida: "${raw}".`, 400);
+  }
+  return d.toISOString();
 }

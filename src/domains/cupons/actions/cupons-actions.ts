@@ -57,6 +57,47 @@ cuponsRouter.delete(
   })
 );
 
+/** POST /api/cupons/:id/itens — adiciona um novo item a um cupom existente. */
+cuponsRouter.post(
+  '/:id/itens',
+  asyncHandler(async (req, res) => {
+    const cupomId = parseInt(req.params.id, 10);
+    if (isNaN(cupomId)) throw new AppError('ID de cupom inválido.', 400);
+    await cupomService.adicionarItem(req.tenantId!, cupomId, req.body ?? {});
+    res.json({ mensagem: 'Item adicionado ao cupom com sucesso.' });
+  })
+);
+
+/** DELETE /api/cupons/:id — exclui um cupom fiscal inteiro. */
+cuponsRouter.delete(
+  '/:id',
+  asyncHandler(async (req, res) => {
+    const cupomId = parseInt(req.params.id, 10);
+    if (isNaN(cupomId)) throw new AppError('ID de cupom inválido.', 400);
+    await cupomService.excluirCupom(req.tenantId!, cupomId);
+    res.json({ mensagem: 'Cupom fiscal excluído com sucesso.' });
+  })
+);
+
+/** POST /api/cupons — cria um cupom fiscal manualmente. */
+cuponsRouter.post(
+  '/',
+  asyncHandler(async (req, res) => {
+    const tenantId = req.tenantId!;
+    const resultado = await cupomService.criarManual(tenantId, req.body ?? {});
+    const matches = await reconciliacaoService.reconciliarSeguro(tenantId, 'manual cupom');
+    const vinculado = matches.some((m) => m.cupomFiscalId === resultado.cupomId);
+
+    res.status(201).json({
+      mensagem: vinculado
+        ? 'Cupom manual criado e reconciliado automaticamente com uma transação bancária.'
+        : 'Cupom manual criado com sucesso.',
+      ...resultado,
+      reconciliadoAutomaticamente: vinculado,
+    });
+  })
+);
+
 /**
  * POST /api/cupons/upload
  * multipart/form-data: arquivo=<fotos ou PDF do cupom> (aceita múltiplos arquivos)

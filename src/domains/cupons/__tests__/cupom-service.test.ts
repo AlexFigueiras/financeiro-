@@ -18,11 +18,14 @@ function fakeOcr(retorno: CupomGemini = CUPOM_VALIDO): CupomOcrPort {
 function fakeRepo(overrides: Partial<CupomRepository> = {}): CupomRepository {
   return {
     async salvar() { return 42; },
+    async criarManual() { return 99; },
     async buscarComItens() { return null; },
     async atualizarCategoriaItem() {},
     async categoriaExiste() { return true; },
     async atualizarItem() {},
+    async adicionarItem() {},
     async excluirItem() {},
+    async excluirCupom() {},
     async listarPendentes() { return []; },
     async buscarArquivoImportado() { return null; },
     async registrarArquivoImportado() {},
@@ -154,5 +157,66 @@ describe('cupomService.excluirItem', () => {
     const service = criarCupomService(fakeOcr(), fakeRepo({ async excluirItem() { chamou = true; } }));
     await service.excluirItem('11111111-1111-4111-8111-111111111111', 1);
     expect(chamou).toBe(true);
+  });
+});
+
+describe('cupomService.criarManual', () => {
+  const TENANT = '11111111-1111-4111-8111-111111111111';
+
+  it('rejeita estabelecimento inválido', async () => {
+    const service = criarCupomService(fakeOcr(), fakeRepo());
+    await expect(service.criarManual(TENANT, { estabelecimento: ' ' })).rejects.toThrow('Estabelecimento é obrigatório');
+  });
+
+  it('cria um cupom manual válido com itens', async () => {
+    const service = criarCupomService(fakeOcr(), fakeRepo());
+    const res = await service.criarManual(TENANT, {
+      estabelecimento: 'Supermercado Central',
+      data_emissao: '2026-07-30',
+      itens: [{ nome_produto: 'Arroz 5kg', quantidade: 2, preco_unitario: 25.5, categoria: 'alimentacao' }],
+    });
+    expect(res).toEqual({
+      cupomId: 99,
+      estabelecimento: 'Supermercado Central',
+      dataEmissao: expect.any(String),
+      valorTotal: 51,
+      itens: 1,
+    });
+  });
+});
+
+describe('cupomService.adicionarItem', () => {
+  const TENANT = '11111111-1111-4111-8111-111111111111';
+
+  it('rejeita produto sem nome', async () => {
+    const service = criarCupomService(fakeOcr(), fakeRepo());
+    await expect(service.adicionarItem(TENANT, 99, { nome_produto: '' })).rejects.toThrow('Nome do produto é obrigatório');
+  });
+
+  it('adiciona um item ao cupom', async () => {
+    let adicionado: unknown;
+    const repo = fakeRepo({ async adicionarItem(_t, _id, item) { adicionado = item; } });
+    const service = criarCupomService(fakeOcr(), repo);
+    await service.adicionarItem(TENANT, 99, {
+      nome_produto: 'Feijão',
+      quantidade: 1,
+      preco_unitario: 8.9,
+      categoria: 'alimentacao',
+    });
+    expect(adicionado).toEqual({
+      nomeProduto: 'Feijão',
+      quantidade: 1,
+      precoUnitario: 8.9,
+      categoria: 'alimentacao',
+    });
+  });
+});
+
+describe('cupomService.excluirCupom', () => {
+  it('delega exclusão de cupom ao repositório', async () => {
+    let excluiu = false;
+    const service = criarCupomService(fakeOcr(), fakeRepo({ async excluirCupom() { excluiu = true; } }));
+    await service.excluirCupom('11111111-1111-4111-8111-111111111111', 99);
+    expect(excluiu).toBe(true);
   });
 });

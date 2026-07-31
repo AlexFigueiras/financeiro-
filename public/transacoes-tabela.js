@@ -100,10 +100,50 @@
     const wrap = document.createElement('div');
     wrap.className = 'itens-wrap';
     const titulo = document.createElement('div');
-    titulo.className = 'itens-titulo';
-    titulo.textContent = `Cupom fiscal — ${transacao.estabelecimento ?? ''} · emissão ${
+    titulo.className = 'itens-titulo titulo-cupom-acoes';
+
+    const textoTitulo = document.createElement('span');
+    textoTitulo.textContent = `Cupom fiscal — ${transacao.estabelecimento ?? ''} · emissão ${
       transacao.cupom_data_emissao ? fmtDataHora.format(new Date(transacao.cupom_data_emissao)) : '—'
     }`;
+
+    const acoesCupom = document.createElement('div');
+    acoesCupom.className = 'cupom-acoes-topo';
+    acoesCupom.style.display = 'flex';
+    acoesCupom.style.gap = '6px';
+
+    const btnAddItem = document.createElement('button');
+    btnAddItem.type = 'button';
+    btnAddItem.className = 'btn btn-secundario';
+    btnAddItem.style.padding = '2px 8px';
+    btnAddItem.style.fontSize = '11.5px';
+    btnAddItem.textContent = '+ Item';
+    btnAddItem.addEventListener('click', () => {
+      if (window.CuponsUI) {
+        window.CuponsUI.abrirModalAdicionarItem(transacao.cupom_id, deps.getCategorias());
+      }
+    });
+
+    const btnExcluirCupom = document.createElement('button');
+    btnExcluirCupom.type = 'button';
+    btnExcluirCupom.className = 'btn btn-secundario';
+    btnExcluirCupom.style.padding = '2px 8px';
+    btnExcluirCupom.style.fontSize = '11.5px';
+    btnExcluirCupom.style.color = 'var(--gastos)';
+    btnExcluirCupom.textContent = '🗑 Excluir Cupom';
+    btnExcluirCupom.addEventListener('click', async () => {
+      if (!confirm('Excluir este cupom fiscal e todos os seus itens?')) return;
+      try {
+        const res = await deps.chamarApi(`/api/cupons/${transacao.cupom_id}`, { method: 'DELETE' });
+        deps.mostrarFeedback(res.mensagem, 'sucesso');
+        await deps.atualizarTudo();
+      } catch (err) {
+        deps.mostrarFeedback(err.message, 'erro');
+      }
+    });
+
+    acoesCupom.append(btnAddItem, btnExcluirCupom);
+    titulo.append(textoTitulo, acoesCupom);
 
     const tabela = document.createElement('table');
     tabela.className = 'tabela-itens';
