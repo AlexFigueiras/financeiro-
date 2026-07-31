@@ -3,6 +3,26 @@
 > Entradas no topo (mais recente primeiro), formato ADR resumido. Decisões estruturais maiores
 > ganham um ADR completo numerado em `docs/adr/`. Ver `AGENTS.md` §2.1 para quando registrar.
 
+## [2026-07-31] Edição e Definição de Saldo Inicial / Atual de Contas Bancárias
+
+- **Status:** accepted
+- **Contexto:** o formulário de cadastro/edição de contas bancárias no frontend (`public/contas-ui.js`, `public/index.html`) só permitia alterar `nome` e `tipo` da conta. Não havia forma de o usuário definir um saldo inicial (ex: cartão Vale Alimentação com R$ 500,00) ou ajustar o saldo de uma conta existente.
+- **Decisão:**
+  - Adicionar o campo `Saldo da conta (R$)` (`#conta-saldo`) no formulário do modal de contas bancárias.
+  - Atualizar o backend (`src/domains/contas/`) para aceitar o parâmetro `saldo` em `criar` (POST `/api/contas`) e `atualizar` (PATCH `/api/contas/:id`).
+  - Quando um saldo é fornecido ao criar uma conta, ou alterado em uma conta existente, o sistema insere ou ajusta a transação de lançamento correspondente (`'Saldo inicial'`) via `transacoes_banco`, mantendo o `saldo_atual` da conta perfeitamente sincronizado pela trigger do banco (`trg_atualiza_saldo`).
+- **Arquivos impactados:**
+  - [public/index.html](file:///c:/Users/Pc%20direito/Projetos%20Antigravity/financeiro-/public/index.html)
+  - [public/contas-ui.js](file:///c:/Users/Pc%20direito/Projetos%20Antigravity/financeiro-/public/contas-ui.js)
+  - [src/domains/contas/ports/contas-repository.ts](file:///c:/Users/Pc%20direito/Projetos%20Antigravity/financeiro-/src/domains/contas/ports/contas-repository.ts)
+  - [src/domains/contas/adapters/contas-repository-pg.ts](file:///c:/Users/Pc%20direito/Projetos%20Antigravity/financeiro-/src/domains/contas/adapters/contas-repository-pg.ts)
+  - [src/domains/contas/services/contas-service.ts](file:///c:/Users/Pc%20direito/Projetos%20Antigravity/financeiro-/src/domains/contas/services/contas-service.ts)
+  - [src/domains/contas/actions/contas-actions.ts](file:///c:/Users/Pc%20direito/Projetos%20Antigravity/financeiro-/src/domains/contas/actions/contas-actions.ts)
+  - [src/domains/contas/__tests__/contas-service.test.ts](file:///c:/Users/Pc%20direito/Projetos%20Antigravity/financeiro-/src/domains/contas/__tests__/contas-service.test.ts)
+- **Consequências / Gotchas:** o usuário agora pode definir o saldo inicial ou ajustar o saldo corrente de qualquer conta bancária diretamente pelo modal "Contas bancárias".
+
+---
+
 ## [2026-07-31] Categorização Semântica Inteligente de Lançamentos via Gemini IA
 
 - **Status:** accepted

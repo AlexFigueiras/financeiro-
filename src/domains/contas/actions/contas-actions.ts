@@ -14,8 +14,8 @@ contasRouter.get(
 contasRouter.post(
   '/',
   asyncHandler(async (req, res) => {
-    const { nome, tipo } = req.body as { nome?: unknown; tipo?: unknown };
-    const conta = await contasService.criar(req.tenantId!, nome, tipo);
+    const { nome, tipo, saldo } = req.body as { nome?: unknown; tipo?: unknown; saldo?: unknown };
+    const conta = await contasService.criar(req.tenantId!, nome, tipo, saldo);
     res.status(201).json(conta);
   })
 );
@@ -25,8 +25,8 @@ contasRouter.patch(
   asyncHandler(async (req, res) => {
     const id = parseInt(req.params.id, 10);
     if (isNaN(id)) throw new AppError('ID de conta inválido.', 400);
-    const { nome, tipo } = req.body as { nome?: unknown; tipo?: unknown };
-    const conta = await contasService.atualizar(req.tenantId!, id, nome, tipo);
+    const { nome, tipo, saldo } = req.body as { nome?: unknown; tipo?: unknown; saldo?: unknown };
+    const conta = await contasService.atualizar(req.tenantId!, id, nome, tipo, saldo);
     res.json(conta);
   })
 );

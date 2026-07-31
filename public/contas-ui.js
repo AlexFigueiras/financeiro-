@@ -8,6 +8,7 @@
   function resetarFormulario() {
     $('form-conta').reset();
     $('conta-id').value = '';
+    if ($('conta-saldo')) $('conta-saldo').value = '0.00';
     $('conta-erro').hidden = true;
   }
 
@@ -35,6 +36,7 @@
         $('conta-id').value = conta.id;
         $('conta-nome').value = conta.nome;
         $('conta-tipo').value = conta.tipo;
+        if ($('conta-saldo')) $('conta-saldo').value = Number(conta.saldoAtual).toFixed(2);
         $('conta-erro').hidden = true;
         $('conta-nome').focus();
       });
@@ -86,7 +88,12 @@
       const erro = $('conta-erro');
       erro.hidden = true;
       const id = $('conta-id').value;
-      const corpo = { nome: $('conta-nome').value.trim(), tipo: $('conta-tipo').value };
+      const saldoVal = $('conta-saldo') ? parseFloat($('conta-saldo').value) : 0;
+      const corpo = {
+        nome: $('conta-nome').value.trim(),
+        tipo: $('conta-tipo').value,
+        saldo: isNaN(saldoVal) ? 0 : saldoVal,
+      };
       try {
         await chamarApi(id ? `/api/contas/${id}` : '/api/contas', {
           method: id ? 'PATCH' : 'POST',

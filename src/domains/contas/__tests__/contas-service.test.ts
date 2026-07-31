@@ -8,9 +8,9 @@ function fakeRepo(contas: ContaBancaria[] = [], transacoesPorConta: Record<numbe
     async listar() {
       return contas;
     },
-    async criar(_tenantId, nome, tipo) {
+    async criar(_tenantId, nome, tipo, saldo) {
       if (contas.some((c) => c.nome === nome)) return null;
-      const nova = { id: contas.length + 1, nome, tipo, saldoAtual: 0, atualizadoEm: new Date().toISOString() };
+      const nova = { id: contas.length + 1, nome, tipo, saldoAtual: saldo ?? 0, atualizadoEm: new Date().toISOString() };
       contas.push(nova);
       return nova;
     },
@@ -20,12 +20,13 @@ function fakeRepo(contas: ContaBancaria[] = [], transacoesPorConta: Record<numbe
     async buscarIdPorNome(_tenantId, nome) {
       return contas.find((c) => c.nome === nome)?.id ?? null;
     },
-    async atualizar(_tenantId, contaId, nome, tipo) {
+    async atualizar(_tenantId, contaId, nome, tipo, saldo) {
       if (contas.some((c) => c.nome === nome && c.id !== contaId)) return null;
       const conta = contas.find((c) => c.id === contaId);
       if (!conta) return null;
       conta.nome = nome;
       conta.tipo = tipo;
+      if (saldo !== undefined) conta.saldoAtual = saldo;
       return conta;
     },
     async contarTransacoes(_tenantId, contaId) {
@@ -55,6 +56,12 @@ describe('contasService.criar', () => {
     const service = criarContasService(fakeRepo());
     const conta = await service.criar('t1', 'Banco X', 'poupanca');
     expect(conta.tipo).toBe('poupanca');
+  });
+
+  it('aceita saldo inicial ao criar conta', async () => {
+    const service = criarContasService(fakeRepo());
+    const conta = await service.criar('t1', 'Vale Alimentação', 'vale_alimentacao', 350.5);
+    expect(conta.saldoAtual).toBe(350.5);
   });
 
   it('rejeita nome duplicado com 409', async () => {

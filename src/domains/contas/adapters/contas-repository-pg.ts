@@ -38,7 +38,7 @@ export const contasRepositoryPg: ContasRepository = {
     });
   },
 
-  async criar(tenantId, nome, tipo) {
+  async criar(tenantId, nome, tipo, saldo) {
     return withTenantTransaction(tenantId, async (client) => {
       const { rows } = await client.query(
         `INSERT INTO contas_bancarias (tenant_id, nome, tipo) VALUES ($1, $2, $3)
@@ -46,7 +46,18 @@ export const contasRepositoryPg: ContasRepository = {
          RETURNING id, nome, tipo, saldo_atual, atualizado_em`,
         [tenantId, nome, tipo]
       );
-      return rows.length > 0 ? paraDominio(rows[0]) : null;
+      if (rows.length === 0) return null;
+      const conta = paraDominio(rows[0]);
+      if (saldo !== undefined && saldo !== 0) {
+        const hashOfx = `saldo_inicial_${conta.id}_${Date.now()}`;
+        await client.query(
+          `INSERT INTO transacoes_banco (conta_id, tenant_id, data_transacao, descricao_bruta, valor, hash_ofx, origem, categoria)
+           VALUES ($1, $2, now(), 'Saldo inicial', $3, $4, 'manual', 'outros')`,
+          [conta.id, tenantId, saldo, hashOfx]
+        );
+        conta.saldoAtual = saldo;
+      }
+      return conta;
     });
   },
 
@@ -67,7 +78,7 @@ export const contasRepositoryPg: ContasRepository = {
     return rows[0]?.id ?? null;
   },
 
-  async atualizar(tenantId, contaId, nome, tipo) {
+  async atualizar(tenantId, contaId, nome, tipo, saldo) {
     return withTenantTransaction(tenantId, async (client) => {
       try {
         const { rows } = await client.query(
@@ -76,7 +87,36 @@ export const contasRepositoryPg: ContasRepository = {
            RETURNING id, nome, tipo, saldo_atual, atualizado_em`,
           [nome, tipo, contaId, tenantId]
         );
-        return rows.length > 0 ? paraDominio(rows[0]) : null;
+        if (rows.length === 0) return null;
+        const conta = paraDominio(rows[0]);
+
+        if (saldo !== undefined) {
+          const diferenca = saldo - conta.saldoAtual;
+          if (diferenca !== 0) {
+            const { rows: tRows } = await client.query<{ id: number; valor: string }>(
+              `SELECT id, valor FROM transacoes_banco
+                WHERE conta_id = $1 AND tenant_id = $2 AND descricao_bruta = 'Saldo inicial'
+                LIMIT 1`,
+              [contaId, tenantId]
+            );
+            if (tRows.length > 0) {
+              const novoValor = Number(tRows[0].valor) + diferenca;
+              await client.query(
+                `UPDATE transacoes_banco SET valor = $1 WHERE id = $2 AND tenant_id = $3`,
+                [novoValor, tRows[0].id, tenantId]
+              );
+            } else {
+              const hashOfx = `ajuste_saldo_${contaId}_${Date.now()}`;
+              await client.query(
+                `INSERT INTO transacoes_banco (conta_id, tenant_id, data_transacao, descricao_bruta, valor, hash_ofx, origem, categoria)
+                 VALUES ($1, $2, now(), 'Saldo inicial', $3, $4, 'manual', 'outros')`,
+                [contaId, tenantId, diferenca, hashOfx]
+              );
+            }
+            conta.saldoAtual = saldo;
+          }
+        }
+        return conta;
       } catch (err) {
         if (typeof err === 'object' && err !== null && (err as { code?: string }).code === '23505') {
           return null; // nome duplicado no tenant (uq_contas_tenant_nome)

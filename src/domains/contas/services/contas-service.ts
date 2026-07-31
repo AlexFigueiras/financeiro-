@@ -9,7 +9,7 @@ export function criarContasService(repo: ContasRepository) {
     /** Usado por outros domínios (via index.ts) para validar um conta_id recebido. */
     existe: (tenantId: string, contaId: number) => repo.existe(tenantId, contaId),
 
-    async criar(tenantId: string, nomeBruto: unknown, tipoBruto: unknown) {
+    async criar(tenantId: string, nomeBruto: unknown, tipoBruto: unknown, saldoBruto?: unknown) {
       if (!nomeBruto || typeof nomeBruto !== 'string' || nomeBruto.trim().length < 2) {
         throw new AppError('Campo obrigatório: nome (mínimo 2 caracteres).', 400);
       }
@@ -18,8 +18,12 @@ export function criarContasService(repo: ContasRepository) {
           ? (tipoBruto as TipoConta)
           : 'corrente';
 
+      const saldo = saldoBruto !== undefined && saldoBruto !== null && !isNaN(Number(saldoBruto))
+        ? Number(saldoBruto)
+        : undefined;
+
       const nome = nomeBruto.trim();
-      const conta = await repo.criar(tenantId, nome, tipo);
+      const conta = await repo.criar(tenantId, nome, tipo, saldo);
       if (!conta) throw new AppError(`Conta "${nome}" já existe.`, 409);
       return conta;
     },
@@ -39,7 +43,7 @@ export function criarContasService(repo: ContasRepository) {
       return contas[0].id;
     },
 
-    async atualizar(tenantId: string, contaId: number, nomeBruto: unknown, tipoBruto: unknown) {
+    async atualizar(tenantId: string, contaId: number, nomeBruto: unknown, tipoBruto: unknown, saldoBruto?: unknown) {
       if (!(await repo.existe(tenantId, contaId))) {
         throw new AppError(`Conta bancária ${contaId} não existe.`, 404);
       }
@@ -51,8 +55,12 @@ export function criarContasService(repo: ContasRepository) {
           ? (tipoBruto as TipoConta)
           : 'corrente';
 
+      const saldo = saldoBruto !== undefined && saldoBruto !== null && !isNaN(Number(saldoBruto))
+        ? Number(saldoBruto)
+        : undefined;
+
       const nome = nomeBruto.trim();
-      const conta = await repo.atualizar(tenantId, contaId, nome, tipo);
+      const conta = await repo.atualizar(tenantId, contaId, nome, tipo, saldo);
       if (!conta) throw new AppError(`Conta "${nome}" já existe.`, 409);
       return conta;
     },
