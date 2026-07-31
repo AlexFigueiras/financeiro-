@@ -4,6 +4,7 @@ import { pool, withTenantTransaction } from '../../../infra/db/pool';
 import { AppError } from '../../../shared/errors/app-error';
 import { TransacoesRepository } from '../ports/transacoes-repository';
 import { DadosTransacao, FiltroTransacoes, ListaTransacoes, TransacaoListada } from '../types';
+import { categorizarTransacoesComIA } from '../../../shared/ia/categorizador-transacoes';
 
 const TZ = 'America/Sao_Paulo';
 
@@ -205,6 +206,7 @@ export const transacoesRepositoryPg: TransacoesRepository = {
 
   async recategorizarTodas(tenantId: string): Promise<number> {
     return withTenantTransaction(tenantId, async (client) => {
+      // 1. Aplica primeiro as regras manuais salvas em regras_categorizacao
       const regrasRes = await client.query<{ termo: string; categoria_chave: string }>(
         'SELECT termo, categoria_chave FROM regras_categorizacao WHERE tenant_id = $1',
         [tenantId]
@@ -225,6 +227,38 @@ export const transacoesRepositoryPg: TransacoesRepository = {
           total += res.rowCount;
         }
       }
+
+      // 2. Busca catálogo de categorias do tenant
+      const catRes = await client.query<{ chave: string; nome: string }>(
+        'SELECT chave, nome FROM categorias WHERE tenant_id = $1',
+        [tenantId]
+      );
+      const categorias = catRes.rows;
+
+      // 3. Busca todas as transações sem cupom para analisar via IA
+      const txsRes = await client.query<{ id: number; descricao_bruta: string; categoria: string }>(
+        'SELECT id, descricao_bruta, categoria FROM transacoes_banco WHERE tenant_id = $1 AND cupom_id IS NULL',
+        [tenantId]
+      );
+
+      if (txsRes.rows.length > 0 && categorias.length > 0) {
+        const paraIa = txsRes.rows.map((t) => ({ id: t.id, descricao: t.descricao_bruta }));
+        const mapaIa = await categorizarTransacoesComIA(categorias, paraIa);
+
+        for (const t of txsRes.rows) {
+          const categoriaNova = mapaIa.get(t.id);
+          if (categoriaNova && categoriaNova !== t.categoria) {
+            const upRes = await client.query(
+              'UPDATE transacoes_banco SET categoria = $1 WHERE id = $2 AND tenant_id = $3',
+              [categoriaNova, t.id, tenantId]
+            );
+            if (upRes.rowCount) {
+              total += upRes.rowCount;
+            }
+          }
+        }
+      }
+
       return total;
     });
   },

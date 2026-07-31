@@ -1,20 +1,51 @@
 import { pool, withTenantTransaction } from '../../../infra/db/pool';
 import { ExtratoRepository } from '../ports/extrato-repository';
 import { hashOfx } from '../domain/ofx-parser';
+import { categorizarTransacoesComIA } from '../../../shared/ia/categorizador-transacoes';
 
 export const extratoRepositoryPg: ExtratoRepository = {
   async inserirTransacoes(tenantId, contaId, transacoes) {
     return withTenantTransaction(tenantId, async (client) => {
+      // 1. Busca catálogo de categorias do tenant
+      const catRes = await client.query<{ chave: string; nome: string }>(
+        'SELECT chave, nome FROM categorias WHERE tenant_id = $1',
+        [tenantId]
+      );
+      const categorias = catRes.rows;
+
+      // 2. Busca regras manuais/aprendidas existentes do tenant
+      const regrasRes = await client.query<{ termo: string; categoria_chave: string }>(
+        'SELECT termo, categoria_chave FROM regras_categorizacao WHERE tenant_id = $1',
+        [tenantId]
+      );
+      const regras = regrasRes.rows;
+
+      // 3. Associa regras manuais ou identifica transações para IA
+      const categoriasPredefinidas = new Map<number, string>();
+      const paraIa: Array<{ id: number; descricao: string }> = [];
+
+      transacoes.forEach((t, index) => {
+        const descLower = t.descricao.toLowerCase();
+        const regraEncontrada = regras.find((r) => descLower.includes(r.termo.toLowerCase()));
+        if (regraEncontrada) {
+          categoriasPredefinidas.set(index, regraEncontrada.categoria_chave);
+        } else {
+          paraIa.push({ id: index, descricao: t.descricao });
+        }
+      });
+
+      // 4. Executa categorização semântica com Gemini IA para as transações sem regra manual
+      const categoriasIa = await categorizarTransacoesComIA(categorias, paraIa);
+
       let importadas = 0;
       let ignoradasDuplicadas = 0;
-      for (const t of transacoes) {
-        // Busca regra de categorização baseada na descrição (case-insensitive contains)
-        const regraRes = await client.query<{ categoria_chave: string }>(
-          `SELECT categoria_chave FROM regras_categorizacao
-            WHERE tenant_id = $1 AND $2 ILIKE '%' || termo || '%' LIMIT 1`,
-          [tenantId, t.descricao]
-        );
-        const categoria = regraRes.rowCount && regraRes.rowCount > 0 ? regraRes.rows[0].categoria_chave : 'outros';
+
+      for (let i = 0; i < transacoes.length; i++) {
+        const t = transacoes[i];
+        const categoria =
+          categoriasPredefinidas.get(i) ??
+          categoriasIa.get(i) ??
+          'outros';
 
         const result = await client.query(
           `INSERT INTO transacoes_banco (tenant_id, conta_id, data_transacao, descricao_bruta, valor, hash_ofx, origem, categoria)

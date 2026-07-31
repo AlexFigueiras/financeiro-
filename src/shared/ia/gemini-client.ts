@@ -46,17 +46,23 @@ export async function requisitarGeminiJson<T>(
     inline_data: { mime_type: arq.mimeType, data: arq.buffer.toString('base64') },
   }));
 
+  return executarChamadaGemini<T>(systemPrompt, [...inlineDataParts, { text: userText }]);
+}
+
+export async function requisitarGeminiTextoJson<T>(
+  systemPrompt: string,
+  userText: string
+): Promise<T> {
+  return executarChamadaGemini<T>(systemPrompt, [{ text: userText }]);
+}
+
+async function executarChamadaGemini<T>(
+  systemPrompt: string,
+  parts: unknown[]
+): Promise<T> {
   const body = {
     system_instruction: { parts: [{ text: systemPrompt }] },
-    contents: [
-      {
-        role: 'user',
-        parts: [
-          ...inlineDataParts,
-          { text: userText },
-        ],
-      },
-    ],
+    contents: [{ role: 'user', parts }],
     generation_config: { temperature: 0, response_mime_type: 'application/json' },
   };
 
@@ -69,9 +75,6 @@ export async function requisitarGeminiJson<T>(
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
-        // 110s: precisa retornar antes do limite de 120s da função no Vercel
-        // (vercel.json), para virar um erro tratado em vez de a função ser
-        // morta pela plataforma (504 sem corpo JSON, sem mensagem para o usuário).
         signal: AbortSignal.timeout(110_000),
       }
     );
@@ -79,8 +82,7 @@ export async function requisitarGeminiJson<T>(
     incrementar('gemini_chamadas_total', { resultado: 'falha_rede' });
     if ((err as Error).name === 'TimeoutError' || (err as Error).name === 'AbortError') {
       throw new AppError(
-        'A leitura pela IA demorou demais (arquivo grande ou muitas páginas). ' +
-          'Tente um PDF menor/mais nítido, ou use o arquivo OFX do extrato.',
+        'A requisição à IA demorou demais. Tente novamente em instantes.',
         504
       );
     }
@@ -109,10 +111,9 @@ export async function requisitarGeminiJson<T>(
   const texto = payload.candidates?.[0]?.content?.parts?.[0]?.text;
   if (!texto) {
     incrementar('gemini_chamadas_total', { resultado: 'sem_conteudo' });
-    throw new AppError('Gemini não retornou conteúdo extraível para este arquivo.', 502);
+    throw new AppError('Gemini não retornou conteúdo extraível.', 502);
   }
 
-  // Remove eventual cerca de markdown, apesar do response_mime_type
   const jsonLimpo = texto.replace(/^```(?:json)?\s*/i, '').replace(/```\s*$/, '').trim();
   try {
     const parsed = JSON.parse(jsonLimpo) as T;
@@ -120,7 +121,7 @@ export async function requisitarGeminiJson<T>(
     return parsed;
   } catch {
     incrementar('gemini_chamadas_total', { resultado: 'json_invalido' });
-    throw new AppError('Gemini retornou um JSON inválido. Tente um arquivo mais nítido.', 422, {
+    throw new AppError('Gemini retornou um JSON inválido.', 422, {
       retorno_bruto: jsonLimpo.slice(0, 500),
     });
   }

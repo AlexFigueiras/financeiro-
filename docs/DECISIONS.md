@@ -3,6 +3,25 @@
 > Entradas no topo (mais recente primeiro), formato ADR resumido. Decisões estruturais maiores
 > ganham um ADR completo numerado em `docs/adr/`. Ver `AGENTS.md` §2.1 para quando registrar.
 
+## [2026-07-31] Categorização Semântica Inteligente de Lançamentos via Gemini IA
+
+- **Status:** accepted
+- **Contexto:** a categorização de transações bancárias utilizava apenas filtro estático SQL de palavras-chave (`regras_categorizacao`). Lançamentos cujos nomes de estabelecimentos não eram palavras idênticas (ex: `"DROGALIRA"`, `"POSTO SHELL"`, `"UBER TRIP"`) eram categorizados incorretamente (ex: `"transporte"`) ou caíam na categoria fallback `"outros"`. O botão **"CATEGORIZAR LANÇAMENTOS"** também utilizava apenas esse filtro estático SQL.
+- **Decisão:**
+  - Adicionar suporte a chamadas de texto estruturado puro no cliente Gemini (`requisitarGeminiTextoJson` em `src/shared/ia/gemini-client.ts`).
+  - Criar o módulo `categorizarTransacoesComIA` (`src/shared/ia/categorizador-transacoes.ts`), que envia em lote as descrições dos lançamentos junto ao catálogo de categorias do tenant para que o Gemini AI identifique a categoria mais adequada (ex: `"DROGALIRA"` $\rightarrow$ `"farmacia"`).
+  - Atualizar a importação de extratos (`src/domains/extrato/adapters/extrato-repository-pg.ts`) para aplicar regras aprendidas primeiro e, nos lançamentos sem regra manual, consultar a categorização do Gemini IA antes de inserir.
+  - Atualizar o método `recategorizarTodas` (`src/domains/transacoes/adapters/transacoes-repository-pg.ts`) acionado pelo botão **"CATEGORIZAR LANÇAMENTOS"** para passar os lançamentos do tenant pelo modelo da IA Gemini.
+- **Arquivos impactados:**
+  - [src/shared/ia/gemini-client.ts](file:///c:/Users/Pc%20direito/Projetos%20Antigravity/financeiro-/src/shared/ia/gemini-client.ts)
+  - [src/shared/ia/categorizador-transacoes.ts](file:///c:/Users/Pc%20direito/Projetos%20Antigravity/financeiro-/src/shared/ia/categorizador-transacoes.ts)
+  - [src/domains/transacoes/adapters/transacoes-repository-pg.ts](file:///c:/Users/Pc%20direito/Projetos%20Antigravity/financeiro-/src/domains/transacoes/adapters/transacoes-repository-pg.ts)
+  - [src/domains/extrato/adapters/extrato-repository-pg.ts](file:///c:/Users/Pc%20direito/Projetos%20Antigravity/financeiro-/src/domains/extrato/adapters/extrato-repository-pg.ts)
+  - [src/shared/ia/__tests__/categorizador-transacoes.test.ts](file:///c:/Users/Pc%20direito/Projetos%20Antigravity/financeiro-/src/shared/ia/__tests__/categorizador-transacoes.test.ts)
+- **Consequências / Gotchas:** descrições de lançamentos passam a ser analisadas semanticamente pela IA; se a API da IA estiver indisponível ou desativada em ambiente local, o sistema aplica o fallback automático para a correspondência estática por regras/outros.
+
+---
+
 ## [2026-07-30] CRUD de Cupons Fiscais (Criação Manual, Adição de Itens e Vínculo Direto a Lançamentos)
 
 - **Status:** accepted
