@@ -11,3 +11,5 @@ export const categoriasService = {
 };
 export type { Categoria } from './types';
 export { registrarListenerSeedCategorias } from './listeners/seed-categorias-listener';
+export { categoriasRouter } from './actions/categorias-actions';
+

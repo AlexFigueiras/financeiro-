@@ -74,10 +74,14 @@
       return;
     }
     try {
-      listaCategorias = await chamarApi('/api/cupons/categorias');
-    } catch (e) {
-      console.error('Erro ao carregar categorias:', e);
-      mostrarFeedback('Não foi possível carregar as categorias.', 'erro');
+      listaCategorias = await chamarApi('/api/categorias');
+    } catch {
+      try {
+        listaCategorias = await chamarApi('/api/cupons/categorias');
+      } catch (err) {
+        console.error('Erro ao carregar categorias:', err);
+        mostrarFeedback('Não foi possível carregar as categorias.', 'erro');
+      }
     }
   }
 
@@ -305,6 +309,12 @@
     configurarDropzone('dropzone-ofx', 'input-ofx', '/api/extrato/upload-ofx', 'Extrato OFX', 'Lendo o extrato... aguarde');
     configurarDropzone('dropzone-cupom', 'input-cupom', '/api/cupons/upload', 'Cupom fiscal', 'Lendo com IA... aguarde');
     window.ContasUI.configurarContas(chamarApi, atualizarTudo);
+    if (window.CategoriasUI) {
+      window.CategoriasUI.configurarCategorias(chamarApi, async () => {
+        await carregarCategoriasMenu();
+        await atualizarTudo();
+      });
+    }
     window.TransacaoForm.configurar(chamarApi, atualizarTudo);
     window.ItemCupomForm.configurar(chamarApi, atualizarTudo);
     window.TransacoesTabela.configurar({

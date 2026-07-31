@@ -7,7 +7,7 @@ import { tenantMiddleware } from './shared/security/tenant-middleware';
 import { errorHandler } from './shared/errors/error-handler';
 import { liveness, readiness } from './shared/observability/health';
 import { snapshot } from './shared/observability/metrics';
-import { registrarListenerSeedCategorias } from './domains/categorias';
+import { registrarListenerSeedCategorias, categoriasRouter } from './domains/categorias';
 import { contasRouter } from './domains/contas';
 import { extratoRouter } from './domains/extrato';
 import { cuponsRouter } from './domains/cupons';
@@ -53,6 +53,7 @@ export function criarApp() {
   app.use('/api', authMiddleware, tenantMiddleware);
 
   app.use('/api/contas', contasRouter);
+  app.use('/api/categorias', categoriasRouter);
   app.use('/api/transacoes', transacoesRouter, reconciliacaoRouter);
   app.use('/api/extrato', extratoRouter);
   app.use('/api/cupons', cuponsRouter);

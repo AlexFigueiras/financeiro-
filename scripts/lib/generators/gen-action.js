@@ -17,7 +17,12 @@ function gerarAction(dominio, nomeRota) {
     throw new Error(`domains/${dominio} não existe — crie com "generate.js domain ${dominio}" primeiro.`);
   }
 
-  const arquivo = path.join(dirDominio, 'actions', `${nomeRota}-actions.ts`);
+  const dirActions = path.join(dirDominio, 'actions');
+  if (!fs.existsSync(dirActions)) {
+    fs.mkdirSync(dirActions, { recursive: true });
+  }
+
+  const arquivo = path.join(dirActions, `${nomeRota}-actions.ts`);
   if (fs.existsSync(arquivo)) {
     throw new Error(`${path.relative(raiz, arquivo)} já existe.`);
   }

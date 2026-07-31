@@ -414,3 +414,27 @@ td.col-acoes .btn-icone + .btn-icone { margin-left: 4px; }
   text-decoration: none;
 }
 
+/* ---- Categorias Modal e Lista -------------------------------------------- */
+#btn-salvar-categoria { background: var(--foco); color: #fff; border-color: var(--foco); }
+
+.lista-categorias {
+  list-style: none; display: flex; flex-direction: column; gap: 4px;
+  max-height: 180px; overflow-y: auto; margin-bottom: 8px;
+}
+.lista-categorias:empty { display: none; }
+.lista-categorias li {
+  display: flex; align-items: center; gap: 8px; padding: 6px 8px;
+  border: 1px solid var(--borda); border-radius: 6px; font-size: 13px;
+}
+.categoria-cor-pill {
+  width: 14px; height: 14px; border-radius: 50%; display: inline-block; flex-shrink: 0;
+  border: 1px solid rgba(0, 0, 0, 0.15);
+}
+.categoria-nome { flex: 1; font-weight: 500; }
+.categoria-acoes { display: flex; gap: 4px; }
+.categoria-cor-input-group { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+.categoria-cor-input-group input[type="color"] {
+  border: 1px solid var(--borda); border-radius: 4px; width: 40px; height: 32px; cursor: pointer; background: var(--superficie);
+}
+
+

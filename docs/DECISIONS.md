@@ -3,6 +3,24 @@
 > Entradas no topo (mais recente primeiro), formato ADR resumido. Decisões estruturais maiores
 > ganham um ADR completo numerado em `docs/adr/`. Ver `AGENTS.md` §2.1 para quando registrar.
 
+## [2026-07-30] CRUD de Categorias de Gasto e Rotas REST no Domínio Categorias
+
+- **Status:** accepted
+- **Contexto:** não existia uma interface nem rotas de escrita para o usuário criar, editar ou excluir categorias de gasto customizadas (ex: "Educação"). As categorias eram fixas e semeadas via migration/listener.
+- **Decisão:**
+  - Expandir o domínio `categorias` com portas e adaptadores (`criar`, `atualizar`, `excluir`) operando com isolamento multi-tenant (`tenant_id`).
+  - Gerar chave/slug sanitizada automaticamente (ex: "Educação" -> `educacao`) com validação de unicidade por tenant e proteção contra exclusão da categoria padrão `outros`.
+  - Criar `src/domains/categorias/actions/categorias-actions.ts` exposto em `GET /api/categorias`, `POST /api/categorias`, `PATCH /api/categorias/:chave` e `DELETE /api/categorias/:chave`.
+  - Adicionar o modal visual e o botão `+ Categoria` na topbar do frontend (`public/categorias-ui.js` e `public/index.html`), permitindo que a lista de opções em transações e cupons seja atualizada em tempo real ao cadastrar novas categorias.
+- **Arquivos impactados:**
+  - [src/domains/categorias/ports/categorias-repository.ts](file:///c:/Users/Pc%20direito/Projetos%20Antigravity/financeiro-/src/domains/categorias/ports/categorias-repository.ts)
+  - [src/domains/categorias/adapters/categorias-repository-pg.ts](file:///c:/Users/Pc%20direito/Projetos%20Antigravity/financeiro-/src/domains/categorias/adapters/categorias-repository-pg.ts)
+  - [src/domains/categorias/services/categorias-service.ts](file:///c:/Users/Pc%20direito/Projetos%20Antigravity/financeiro-/src/domains/categorias/services/categorias-service.ts)
+  - [src/domains/categorias/actions/categorias-actions.ts](file:///c:/Users/Pc%20direito/Projetos%20Antigravity/financeiro-/src/domains/categorias/actions/categorias-actions.ts)
+  - [public/categorias-ui.js](file:///c:/Users/Pc%20direito/Projetos%20Antigravity/financeiro-/public/categorias-ui.js)
+  - [public/index.html](file:///c:/Users/Pc%20direito/Projetos%20Antigravity/financeiro-/public/index.html)
+- **Consequências / Gotchas:** permite total flexibilidade na categorização de despesas sem necessidade de migrations para inclusão de novos tipos de gastos.
+
 ---
 
 ## [2026-07-30] Registro de AppErrors (4xx) nos logs de observabilidade (Vercel Serverless)

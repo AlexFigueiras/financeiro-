@@ -19,6 +19,7 @@
 | Dashboard (KPIs, gráficos, tabela) | ✅ | `src/domains/dashboard/`, `public/charts.js` | Sem paginação de gráfico por período customizado (só mês). |
 | CRUD de transações (lançamentos) + Limpar Mês | ✅ | `src/domains/transacoes/`, `public/transacao-form.js`, `public/transacoes-tabela.js`, `public/app.js` | Criar manual, editar (data/valor/descrição/conta/categoria), excluir e botão para limpar todos os dados do mês de referência (oculto no Perfil). |
 | CRUD de contas bancárias | ✅ | `src/domains/contas/`, `public/contas-ui.js`, `public/index.html` | Criar/listar/editar/excluir com UI. Suporta tipos especiais (vale alimentação/refeição e cartão de crédito). |
+| CRUD de categorias de gasto | ✅ | `src/domains/categorias/`, `public/categorias-ui.js`, `public/index.html` | Criar, listar, editar (nome/cor) e excluir categorias do tenant com UI e botão "+ Categoria". |
 | CRUD de itens de cupom fiscal | ✅ | `src/domains/cupons/`, `public/item-cupom-form.js` | Editar nome/quantidade/preço unitário e excluir item; `cupons_fiscais.valor_total` é recalculado a cada mudança. |
 | Cron de reconciliação periódica | 🟡 | `src/index.ts` | Só roda em `AUTH_MODE=off` (servidor tradicional single-tenant dev). Em produção multi-tenant, reconciliação dispara só por upload — sem varredura periódica por tenant ainda. |
 | Cobrança/assinatura (billing) | ⬜ | — | Produto hoje não cobra; nenhuma integração de pagamento. |
