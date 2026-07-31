@@ -3,16 +3,19 @@
 > Entradas no topo (mais recente primeiro), formato ADR resumido. Decisões estruturais maiores
 > ganham um ADR completo numerado em `docs/adr/`. Ver `AGENTS.md` §2.1 para quando registrar.
 
-## [2026-07-30] CRUD de Cupons Fiscais (Criação Manual, Adição de Itens e Exclusão)
+## [2026-07-30] CRUD de Cupons Fiscais (Criação Manual, Adição de Itens e Vínculo Direto a Lançamentos)
 
 - **Status:** accepted
-- **Contexto:** o sistema dependia exclusivamente do OCR via IA (Gemini) para gerar cupons fiscais. Nos casos em que o cupom impresso foi perdido, amassado ou ilegível, o usuário não tinha uma forma de cadastrar o cupom manualmente com seus itens ou adicionar novos produtos a um cupom existente.
+- **Contexto:** o sistema dependia exclusivamente do OCR via IA (Gemini) para gerar cupons fiscais. Nos casos em que o cupom impresso foi perdido, amassado ou ilegível, o usuário não tinha uma forma de cadastrar o cupom manualmente ou vincular itens diretamente a lançamentos bancários existentes que ainda não possuíam cupom.
 - **Decisão:**
   - Adicionar ao repositório e serviço de cupons (`src/domains/cupons/`) os métodos `criarManual`, `adicionarItem` e `excluirCupom`.
-  - Expor as rotas REST `POST /api/cupons` (criação manual), `POST /api/cupons/:id/itens` (adição individual de produto ao cupom) e `DELETE /api/cupons/:id` (exclusão transacional do cupom e desvinculação da transação).
-  - Executar a reconciliação automática de forma transparente quando um cupom manual é cadastrado.
-  - Criar a interface visual no frontend (`public/cupons-ui.js`, `#modal-novo-cupom` e `#modal-adicionar-item-cupom`), permitindo criar cupons manuais com múltiplas linhas de itens e adicionar/excluir itens e cupons diretamente a partir do accordion da tabela de transações.
+  - Expor as rotas REST `POST /api/cupons` (com suporte opcional ao parâmetro `transacao_id` para vincular o cupom manualmente e diretamente ao lançamento), `POST /api/cupons/:id/itens` (adição individual de produto ao cupom) e `DELETE /api/cupons/:id` (exclusão transacional do cupom).
+  - Incluir a ação `+ Item` em todas as linhas da tabela de transações (`public/transacoes-tabela.js`). Para lançamentos sem cupom, clicar em `+ Item` abre o modal pré-preenchido com descrição, valor e categoria da transação, criando o cupom e convertendo o lançamento em `🧾 Detalhado`.
 - **Arquivos impactados:**
+  - [src/domains/cupons/actions/cupons-actions.ts](file:///c:/Users/Pc%20direito/Projetos%20Antigravity/financeiro-/src/domains/cupons/actions/cupons-actions.ts)
+  - [public/cupons-ui.js](file:///c:/Users/Pc%20direito/Projetos%20Antigravity/financeiro-/public/cupons-ui.js)
+  - [public/transacoes-tabela.js](file:///c:/Users/Pc%20direito/Projetos%20Antigravity/financeiro-/public/transacoes-tabela.js)
+  - [public/index.html](file:///c:/Users/Pc%20direito/Projetos%20Antigravity/financeiro-/public/index.html)
   - [src/domains/cupons/ports/cupom-repository.ts](file:///c:/Users/Pc%20direito/Projetos%20Antigravity/financeiro-/src/domains/cupons/ports/cupom-repository.ts)
   - [src/domains/cupons/adapters/cupom-repository-pg.ts](file:///c:/Users/Pc%20direito/Projetos%20Antigravity/financeiro-/src/domains/cupons/adapters/cupom-repository-pg.ts)
   - [src/domains/cupons/services/cupom-service.ts](file:///c:/Users/Pc%20direito/Projetos%20Antigravity/financeiro-/src/domains/cupons/services/cupom-service.ts)

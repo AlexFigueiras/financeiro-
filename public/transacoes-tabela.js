@@ -59,6 +59,24 @@
     const td = document.createElement('td');
     td.className = 'col-acoes';
 
+    const btnAddItem = document.createElement('button');
+    btnAddItem.type = 'button';
+    btnAddItem.className = 'btn btn-secundario btn-add-item-tabela';
+    btnAddItem.title = transacao.cupom_id
+      ? 'Adicionar mais um item ao cupom deste lançamento'
+      : 'Inserir cupom/item manualmente para este lançamento';
+    btnAddItem.textContent = '+ Item';
+    btnAddItem.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (window.CuponsUI) {
+        if (transacao.cupom_id) {
+          window.CuponsUI.abrirModalAdicionarItem(transacao.cupom_id, deps.getCategorias());
+        } else {
+          window.CuponsUI.abrirModalAdicionarItemSemCupom(transacao, deps.getCategorias());
+        }
+      }
+    });
+
     const btnEditar = document.createElement('button');
     btnEditar.type = 'button';
     btnEditar.className = 'btn-icone';
@@ -86,7 +104,7 @@
       }
     });
 
-    td.append(btnEditar, btnExcluir);
+    td.append(btnAddItem, btnEditar, btnExcluir);
     return td;
   }
 

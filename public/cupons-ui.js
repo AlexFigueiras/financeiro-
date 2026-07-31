@@ -63,15 +63,26 @@
     return div;
   }
 
-  function abrirModalNovoCupom(categorias = []) {
+  function abrirModalNovoCupom(categorias = [], transacao = null) {
     if (categorias.length > 0) categoriasCache = categorias;
     const form = $('form-novo-cupom');
     if (form) form.reset();
 
+    const transIdInput = $('novo-cupom-transacao-id');
+    if (transIdInput) transIdInput.value = transacao ? transacao.id : '';
+
+    const estabInput = $('novo-cupom-estabelecimento');
+    if (estabInput && transacao) {
+      estabInput.value = transacao.descricao_bruta || '';
+    }
+
     const dataInput = $('novo-cupom-data');
     if (dataInput) {
-      const hoje = new Date();
-      dataInput.value = hoje.toISOString().split('T')[0];
+      if (transacao && transacao.data_transacao) {
+        dataInput.value = transacao.data_transacao.split('T')[0];
+      } else {
+        dataInput.value = new Date().toISOString().split('T')[0];
+      }
     }
 
     const container = $('novo-cupom-itens-lista');
@@ -86,8 +97,7 @@
     const modal = $('modal-novo-cupom');
     if (modal) {
       modal.hidden = false;
-      const estab = $('novo-cupom-estabelecimento');
-      if (estab) estab.focus();
+      if (estabInput) estabInput.focus();
     }
   }
 
@@ -95,6 +105,11 @@
     if (categorias.length > 0) categoriasCache = categorias;
     $('form-adicionar-item-cupom').reset();
     $('add-item-cupom-id').value = cupomId;
+    if ($('add-item-transacao-id')) $('add-item-transacao-id').value = '';
+    if ($('add-item-transacao-data')) $('add-item-transacao-data').value = '';
+
+    const tituloModal = $('modal-add-item-titulo');
+    if (tituloModal) tituloModal.textContent = 'Adicionar item ao cupom';
 
     const selectCat = $('add-item-cupom-categoria');
     if (selectCat) preencherSelectCategorias(selectCat, 'outros');
@@ -106,6 +121,39 @@
     if (modal) {
       modal.hidden = false;
       const nomeInput = $('add-item-cupom-nome');
+      if (nomeInput) nomeInput.focus();
+    }
+  }
+
+  function abrirModalAdicionarItemSemCupom(transacao, categorias = []) {
+    if (categorias.length > 0) categoriasCache = categorias;
+    $('form-adicionar-item-cupom').reset();
+    $('add-item-cupom-id').value = '';
+    if ($('add-item-transacao-id')) $('add-item-transacao-id').value = transacao.id;
+    if ($('add-item-transacao-data')) $('add-item-transacao-data').value = transacao.data_transacao;
+
+    const tituloModal = $('modal-add-item-titulo');
+    if (tituloModal) {
+      tituloModal.textContent = `Adicionar item ao lançamento ("${transacao.descricao_bruta}")`;
+    }
+
+    const nomeInput = $('add-item-cupom-nome');
+    if (nomeInput) nomeInput.value = transacao.descricao_bruta || '';
+
+    const precoInput = $('add-item-cupom-preco');
+    if (precoInput && transacao.valor) {
+      precoInput.value = Math.abs(Number(transacao.valor)).toFixed(2);
+    }
+
+    const selectCat = $('add-item-cupom-categoria');
+    if (selectCat) preencherSelectCategorias(selectCat, transacao.categoria || 'outros');
+
+    const erro = $('add-item-cupom-erro');
+    if (erro) erro.hidden = true;
+
+    const modal = $('modal-adicionar-item-cupom');
+    if (modal) {
+      modal.hidden = false;
       if (nomeInput) nomeInput.focus();
     }
   }
@@ -144,6 +192,7 @@
 
         const estabelecimento = $('novo-cupom-estabelecimento').value.trim();
         const data_emissao = $('novo-cupom-data').value;
+        const transacao_id = $('novo-cupom-transacao-id') ? $('novo-cupom-transacao-id').value : undefined;
 
         const linhas = document.querySelectorAll('#novo-cupom-itens-lista .linha-item-cupom-form');
         const itens = [];
@@ -161,7 +210,12 @@
           await chamarApi('/api/cupons', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ estabelecimento, data_emissao, itens }),
+            body: JSON.stringify({
+              transacao_id: transacao_id || undefined,
+              estabelecimento,
+              data_emissao,
+              itens,
+            }),
           });
           fecharModais();
           if (typeof aoSalvar === 'function') await aoSalvar();
@@ -182,19 +236,36 @@
         if (erro) erro.hidden = true;
 
         const cupomId = $('add-item-cupom-id').value;
-        const corpo = {
-          nome_produto: $('add-item-cupom-nome').value.trim(),
-          quantidade: $('add-item-cupom-quantidade').value,
-          preco_unitario: $('add-item-cupom-preco').value,
-          categoria: $('add-item-cupom-categoria').value,
-        };
+        const transacaoId = $('add-item-transacao-id') ? $('add-item-transacao-id').value : '';
+        const transacaoData = $('add-item-transacao-data') ? $('add-item-transacao-data').value : '';
+
+        const nome_produto = $('add-item-cupom-nome').value.trim();
+        const quantidade = $('add-item-cupom-quantidade').value;
+        const preco_unitario = $('add-item-cupom-preco').value;
+        const categoria = $('add-item-cupom-categoria').value;
 
         try {
-          await chamarApi(`/api/cupons/${cupomId}/itens`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(corpo),
-          });
+          if (transacaoId) {
+            // Lançamento sem cupom: cria cupom manual e vincula diretamente à transação
+            const dataEmissao = transacaoData ? transacaoData.split('T')[0] : new Date().toISOString().split('T')[0];
+            await chamarApi('/api/cupons', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                transacao_id: transacaoId,
+                estabelecimento: nome_produto,
+                data_emissao: dataEmissao,
+                itens: [{ nome_produto, quantidade, preco_unitario, categoria }],
+              }),
+            });
+          } else {
+            // Cupom já existente: adiciona item ao cupom
+            await chamarApi(`/api/cupons/${cupomId}/itens`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ nome_produto, quantidade, preco_unitario, categoria }),
+            });
+          }
           fecharModais();
           if (typeof aoSalvar === 'function') await aoSalvar();
         } catch (err) {
@@ -207,5 +278,11 @@
     }
   }
 
-  window.CuponsUI = { configurar, abrirModalNovoCupom, abrirModalAdicionarItem, fecharModais };
+  window.CuponsUI = {
+    configurar,
+    abrirModalNovoCupom,
+    abrirModalAdicionarItem,
+    abrirModalAdicionarItemSemCupom,
+    fecharModais,
+  };
 })();

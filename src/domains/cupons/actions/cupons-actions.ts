@@ -5,6 +5,7 @@ import { asyncHandler, AppError } from '../../../shared/errors/app-error';
 import { cupomService } from '../index';
 import { reconciliacaoService } from '../../reconciliacao';
 import { categoriasService } from '../../categorias';
+import { transacoesService } from '../../transacoes';
 
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -85,6 +86,22 @@ cuponsRouter.post(
   asyncHandler(async (req, res) => {
     const tenantId = req.tenantId!;
     const resultado = await cupomService.criarManual(tenantId, req.body ?? {});
+
+    const transacaoId = req.body?.transacao_id ? parseInt(String(req.body.transacao_id), 10) : undefined;
+    if (transacaoId && !isNaN(transacaoId)) {
+      await transacoesService.atualizar(tenantId, transacaoId, {
+        cupom_id: resultado.cupomId,
+        status_reconciliado: true,
+      });
+      res.status(201).json({
+        mensagem: 'Cupom manual criado e vinculado ao lançamento com sucesso.',
+        ...resultado,
+        reconciliadoAutomaticamente: true,
+        transacaoId,
+      });
+      return;
+    }
+
     const matches = await reconciliacaoService.reconciliarSeguro(tenantId, 'manual cupom');
     const vinculado = matches.some((m) => m.cupomFiscalId === resultado.cupomId);
 

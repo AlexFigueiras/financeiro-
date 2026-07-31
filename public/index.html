@@ -131,8 +131,9 @@
 
   <div id="modal-novo-cupom" class="modal-overlay" hidden>
     <form id="form-novo-cupom" class="painel modal-card modal-card-largo" aria-label="Novo Cupom Fiscal">
-      <h2>Novo Cupom Fiscal (Manual)</h2>
+      <h2 id="modal-novo-cupom-titulo">Novo Cupom Fiscal (Manual)</h2>
       <p class="painel-sub">Cadastre os dados da nota fiscal perdida ou amassada.</p>
+      <input type="hidden" id="novo-cupom-transacao-id">
       <label for="novo-cupom-estabelecimento">Estabelecimento</label>
       <input type="text" id="novo-cupom-estabelecimento" required minlength="2" placeholder="Ex.: Supermercado Carrefour">
       <label for="novo-cupom-data">Data de Emissão</label>
@@ -154,8 +155,10 @@
 
   <div id="modal-adicionar-item-cupom" class="modal-overlay" hidden>
     <form id="form-adicionar-item-cupom" class="painel modal-card" aria-label="Adicionar item ao cupom">
-      <h2>Adicionar item ao cupom</h2>
+      <h2 id="modal-add-item-titulo">Adicionar item ao cupom</h2>
       <input type="hidden" id="add-item-cupom-id">
+      <input type="hidden" id="add-item-transacao-id">
+      <input type="hidden" id="add-item-transacao-data">
       <label for="add-item-cupom-nome">Produto</label>
       <input type="text" id="add-item-cupom-nome" required minlength="2" placeholder="Ex.: Leite Integral 1L">
       <label for="add-item-cupom-quantidade">Quantidade</label>
@@ -171,8 +174,6 @@
       </div>
     </form>
   </div>
-      <h2>Editar item</h2>
-      <input type="hidden" id="item-cupom-id">
       <label for="item-cupom-nome">Produto</label>
       <input type="text" id="item-cupom-nome" required placeholder="Ex.: Arroz 5kg">
       <label for="item-cupom-quantidade">Quantidade</label>

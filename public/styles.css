@@ -449,6 +449,7 @@ td.col-acoes .btn-icone + .btn-icone { margin-left: 4px; }
 .linha-item-cupom-form .item-preco-input { width: 100px; }
 .linha-item-cupom-form .item-cat-select { flex: 1; }
 .titulo-cupom-acoes { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; margin-bottom: 8px; }
+.btn-add-item-tabela { padding: 2px 7px; font-size: 11px; margin-right: 4px; line-height: 1.2; }
 
 
 
