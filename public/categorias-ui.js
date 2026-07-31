@@ -85,13 +85,13 @@
   }
 
   function configurarCategorias(chamarApi, aoMudar) {
-    const btnAbrir = $('btn-gerenciar-categorias') || $('btn-nova-categoria');
-    if (btnAbrir) {
-      btnAbrir.addEventListener('click', async () => {
+    const botoesAbrir = document.querySelectorAll('#btn-gerenciar-categorias, .btn-gerenciar-cat');
+    botoesAbrir.forEach((btn) => {
+      btn.addEventListener('click', async () => {
         abrirModal();
         await renderizarLista(chamarApi, aoMudar);
       });
-    }
+    });
 
     const btnCancelar = $('btn-cancelar-categoria');
     if (btnCancelar) {
