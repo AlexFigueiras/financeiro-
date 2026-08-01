@@ -320,6 +320,9 @@
     if (window.CuponsUI) {
       window.CuponsUI.configurar(chamarApi, atualizarTudo, () => listaCategorias);
     }
+    if (window.NfceScanner) {
+      window.NfceScanner.configurar(chamarApi, atualizarTudo);
+    }
     window.TransacoesTabela.configurar({
       chamarApi,
       mostrarFeedback,

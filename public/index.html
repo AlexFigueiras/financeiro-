@@ -155,6 +155,25 @@
     </form>
   </div>
 
+  <div id="modal-nfce" class="modal-overlay" hidden>
+    <div class="painel modal-card">
+      <h2>Escanear NFC-e</h2>
+      <p class="painel-sub">Aponte a câmera para o QR Code impresso no cupom fiscal.</p>
+      <div id="nfce-camera-area">
+        <video id="nfce-video" class="nfce-video" autoplay playsinline muted></video>
+      </div>
+      <form id="form-nfce-link" aria-label="Colar link da NFC-e">
+        <label for="nfce-link">Ou cole o link da NFC-e</label>
+        <input type="url" id="nfce-link" placeholder="https://www.nfce.fazenda.sp.gov.br/qrcode?p=...">
+        <div id="nfce-erro" class="feedback erro" role="alert" hidden></div>
+        <div class="modal-acoes">
+          <button type="submit" id="btn-salvar-nfce-link">Enviar link</button>
+          <button type="button" id="btn-cancelar-nfce">Cancelar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
   <div id="modal-adicionar-item-cupom" class="modal-overlay" hidden>
     <form id="form-adicionar-item-cupom" class="painel modal-card" aria-label="Adicionar item ao cupom">
       <h2 id="modal-add-item-titulo">Adicionar item ao cupom</h2>
@@ -243,6 +262,11 @@
         <span>Arraste a foto/PDF do cupom ou clique — extração automática via Gemini</span>
         <input type="file" id="input-cupom" accept="image/*,.pdf" multiple hidden>
       </div>
+      <div class="dropzone" tabindex="0" role="button" id="btn-escanear-nfce"
+           aria-label="Escanear QR Code de cupom fiscal (NFC-e) pela câmera">
+        <strong>Escanear NFC-e</strong>
+        <span>Aponte a câmera para o QR Code do cupom — importa direto da SEFAZ</span>
+      </div>
       <div class="dropzone btn-novo-cupom-manual" tabindex="0" role="button" id="btn-novo-cupom-manual"
            aria-label="Digitar cupom fiscal manualmente (sem foto)">
         <strong>+ Novo Cupom Fiscal (Manual)</strong>
@@ -305,6 +329,7 @@
   <script src="contas-ui.js"></script>
   <script src="categorias-ui.js"></script>
   <script src="cupons-ui.js"></script>
+  <script src="nfce-scanner.js"></script>
   <script src="transacao-form.js"></script>
   <script src="item-cupom-form.js"></script>
   <script src="transacoes-tabela.js"></script>

@@ -1,6 +1,8 @@
 import { CupomOcrPort, ArquivoOcr } from '../ports/cupom-ocr-port';
 import { CupomRepository } from '../ports/cupom-repository';
+import { NfcePort } from '../ports/nfce-port';
 import { validarCupom, normalizarDataEmissao } from '../domain/validacao-cupom';
+import { interpretarUrlNfce } from '../domain/nfce-url';
 import { DadosItemCupom, ResultadoCupom } from '../types';
 import { AppError } from '../../../shared/errors/app-error';
 import { hashConjuntoArquivos } from '../../../shared/arquivos/hash-arquivo';
@@ -12,7 +14,14 @@ const fmtDataHora = new Intl.DateTimeFormat('pt-BR', {
   timeZone: 'America/Sao_Paulo',
 });
 
-export function criarCupomService(ocr: CupomOcrPort, repo: CupomRepository) {
+/** Sem NfcePort real injetado (só ocorre se `index.ts` não vier a compor este service). */
+const NFCE_NAO_CONFIGURADO: NfcePort = {
+  async extrair() {
+    throw new AppError('Importação de cupom via NFC-e não está configurada neste ambiente.', 501);
+  },
+};
+
+export function criarCupomService(ocr: CupomOcrPort, repo: CupomRepository, nfce: NfcePort = NFCE_NAO_CONFIGURADO) {
   return {
     /** Processa os arquivos do cupom: OCR via Gemini + persistência transacional. */
     async processar(
@@ -49,6 +58,52 @@ export function criarCupomService(ocr: CupomOcrPort, repo: CupomRepository) {
       const nomeArquivo = arquivos.map((a) => a.nome).filter(Boolean).join(', ');
       const tamanhoBytes = arquivos.reduce((soma, a) => soma + a.buffer.length, 0);
       await repo.registrarArquivoImportado(tenantId, { hashArquivo, nomeArquivo, tamanhoBytes });
+
+      const resultado: ResultadoCupom = {
+        cupomId,
+        estabelecimento: dados.estabelecimento,
+        dataEmissao,
+        valorTotal: dados.valor_total,
+        itens: dados.itens.length,
+      };
+
+      await publicar('cupom.processado.v1', {
+        tenantId,
+        cupomId,
+        estabelecimento: resultado.estabelecimento,
+        valorTotal: resultado.valorTotal,
+        itens: resultado.itens,
+      });
+
+      return resultado;
+    },
+
+    /** Importa um cupom a partir da URL do QR Code da NFC-e: scraping da SEFAZ + IA + reuso do pipeline. */
+    async importarPorUrlNfce(
+      tenantId: string,
+      urlBruta: string,
+      opcoes: { forcar?: boolean } = {}
+    ): Promise<ResultadoCupom> {
+      const { url, chaveAcesso } = interpretarUrlNfce(urlBruta);
+
+      // Dedup pela chave de acesso da nota — identificador natural, mais preciso que hash de arquivo.
+      if (!opcoes.forcar) {
+        const anterior = await repo.buscarPorChaveAcesso(tenantId, chaveAcesso);
+        if (anterior) {
+          throw new AppError(
+            `Esta nota fiscal já foi importada em ${fmtDataHora.format(anterior.criadoEm)}. ` +
+              'Nada foi processado de novo.',
+            409,
+            { duplicado: true, cupomId: anterior.id, enviadoEm: anterior.criadoEm.toISOString() }
+          );
+        }
+      }
+
+      const dados = await nfce.extrair(url);
+      validarCupom(dados);
+      const dataEmissao = normalizarDataEmissao(dados.data);
+
+      const cupomId = await repo.salvar(tenantId, dados, dataEmissao, chaveAcesso);
 
       const resultado: ResultadoCupom = {
         cupomId,

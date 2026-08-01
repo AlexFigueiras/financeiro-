@@ -16,13 +16,13 @@ async function recalcularTotalCupom(client: PoolClient, tenantId: string, cupomI
 }
 
 export const cupomRepositoryPg: CupomRepository = {
-  async salvar(tenantId, dados, dataEmissaoIso) {
+  async salvar(tenantId, dados, dataEmissaoIso, chaveAcesso) {
     return withTenantTransaction(tenantId, async (client) => {
       const cupom = await client.query<{ id: number }>(
-        `INSERT INTO cupons_fiscais (tenant_id, data_emissao, valor_total, estabelecimento, json_bruto_ia)
-         VALUES ($1, $2, $3, $4, $5)
+        `INSERT INTO cupons_fiscais (tenant_id, data_emissao, valor_total, estabelecimento, json_bruto_ia, chave_acesso)
+         VALUES ($1, $2, $3, $4, $5, $6)
          RETURNING id`,
-        [tenantId, dataEmissaoIso, dados.valor_total, dados.estabelecimento.trim(), JSON.stringify(dados)]
+        [tenantId, dataEmissaoIso, dados.valor_total, dados.estabelecimento.trim(), JSON.stringify(dados), chaveAcesso ?? null]
       );
       const cupomId = cupom.rows[0].id;
 
@@ -246,6 +246,15 @@ export const cupomRepositoryPg: CupomRepository = {
       ]);
       if (res.rowCount === 0) throw new AppError('Cupom fiscal não encontrado.', 404);
     });
+  },
+
+  async buscarPorChaveAcesso(tenantId, chaveAcesso) {
+    const { rows } = await pool.query<{ id: number; criado_em: Date }>(
+      'SELECT id, criado_em FROM cupons_fiscais WHERE tenant_id = $1 AND chave_acesso = $2',
+      [tenantId, chaveAcesso]
+    );
+    if (rows.length === 0) return null;
+    return { id: rows[0].id, criadoEm: rows[0].criado_em };
   },
 
   async buscarArquivoImportado(tenantId, hashArquivo) {

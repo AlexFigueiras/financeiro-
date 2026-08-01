@@ -1,8 +1,11 @@
 import { ArquivoImportado, CupomGemini, CupomComItens, DadosItemCupom, DadosCriarCupomManual, DadosNovoItemCupom } from '../types';
 
 export interface CupomRepository {
-  salvar(tenantId: string, dados: CupomGemini, dataEmissaoIso: string): Promise<number>;
+  salvar(tenantId: string, dados: CupomGemini, dataEmissaoIso: string, chaveAcesso?: string): Promise<number>;
   criarManual(tenantId: string, dados: DadosCriarCupomManual): Promise<number>;
+
+  /** Retorna o cupom já importado com esta chave de acesso (dedup por NFC-e), se existir. */
+  buscarPorChaveAcesso(tenantId: string, chaveAcesso: string): Promise<{ id: number; criadoEm: Date } | null>;
 
   /** Retorna o registro do envio (por hash do conjunto de arquivos) se ele já aconteceu antes. */
   buscarArquivoImportado(tenantId: string, hashArquivo: string): Promise<ArquivoImportado | null>;

@@ -27,6 +27,8 @@ const BROWSER_GLOBALS = {
   Headers: 'readonly',
   localStorage: 'readonly',
   confirm: 'readonly',
+  requestAnimationFrame: 'readonly',
+  cancelAnimationFrame: 'readonly',
 };
 
 const SERVICE_WORKER_GLOBALS = {

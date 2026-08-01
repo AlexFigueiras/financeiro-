@@ -144,6 +144,32 @@ cuponsRouter.post(
   })
 );
 
+/**
+ * POST /api/cupons/nfce
+ * { url, forcar? } — URL do QR Code lido pela câmera. Busca a página pública da SEFAZ,
+ * extrai os dados com o Gemini (texto) e reaproveita o pipeline de cupons (validação →
+ * persistência → evento → reconciliação).
+ */
+cuponsRouter.post(
+  '/nfce',
+  asyncHandler(async (req, res) => {
+    const tenantId = req.tenantId!;
+    const url = typeof req.body?.url === 'string' ? req.body.url : '';
+    const forcar = req.body?.forcar === true || req.body?.forcar === 'true';
+    const resultado = await cupomService.importarPorUrlNfce(tenantId, url, { forcar });
+    const matches = await reconciliacaoService.reconciliarSeguro(tenantId, 'nfce qrcode');
+    const vinculado = matches.some((m) => m.cupomFiscalId === resultado.cupomId);
+
+    res.status(201).json({
+      mensagem: vinculado
+        ? 'Cupom da NFC-e importado e reconciliado automaticamente com uma transação bancária.'
+        : 'Cupom da NFC-e importado com sucesso.',
+      ...resultado,
+      reconciliadoAutomaticamente: vinculado,
+    });
+  })
+);
+
 /** GET /api/cupons — lista cupons pendentes de reconciliação. */
 cuponsRouter.get(
   '/',

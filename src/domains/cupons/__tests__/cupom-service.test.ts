@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { criarCupomService } from '../services/cupom-service';
 import { CupomOcrPort } from '../ports/cupom-ocr-port';
 import { CupomRepository } from '../ports/cupom-repository';
+import { NfcePort } from '../ports/nfce-port';
 import { CupomGemini, CupomComItens } from '../types';
 
 const CUPOM_VALIDO: CupomGemini = {
@@ -29,8 +30,13 @@ function fakeRepo(overrides: Partial<CupomRepository> = {}): CupomRepository {
     async listarPendentes() { return []; },
     async buscarArquivoImportado() { return null; },
     async registrarArquivoImportado() {},
+    async buscarPorChaveAcesso() { return null; },
     ...overrides,
   };
+}
+
+function fakeNfce(retorno: CupomGemini = CUPOM_VALIDO): NfcePort {
+  return { async extrair() { return retorno; } };
 }
 
 describe('cupomService.processar', () => {
@@ -91,6 +97,60 @@ describe('cupomService.processar', () => {
     await service.processar('11111111-1111-4111-8111-111111111111', [a, b]);
     await service.processar('11111111-1111-4111-8111-111111111111', [b, a]);
     expect(hashesConsultados[0]).toBe(hashesConsultados[1]);
+  });
+});
+
+describe('cupomService.importarPorUrlNfce', () => {
+  const TENANT = '11111111-1111-4111-8111-111111111111';
+  const CHAVE = '35260112345678000190650010000012345123456789';
+  const URL_QRCODE = `https://www.nfce.fazenda.sp.gov.br/qrcode?p=${CHAVE}|2|1|abcd1234`;
+
+  it('importa um cupom válido a partir da URL do QR Code', async () => {
+    const service = criarCupomService(fakeOcr(), fakeRepo(), fakeNfce());
+    const resultado = await service.importarPorUrlNfce(TENANT, URL_QRCODE);
+    expect(resultado).toMatchObject({ cupomId: 42, estabelecimento: 'Mercado X', valorTotal: 50, itens: 1 });
+  });
+
+  it('rejeita URL fora da allowlist da SEFAZ antes mesmo de chamar o adapter', async () => {
+    let chamouAdapter = false;
+    const nfce: NfcePort = { async extrair() { chamouAdapter = true; return CUPOM_VALIDO; } };
+    const service = criarCupomService(fakeOcr(), fakeRepo(), nfce);
+    await expect(service.importarPorUrlNfce(TENANT, 'https://evil.com')).rejects.toMatchObject({ status: 400 });
+    expect(chamouAdapter).toBe(false);
+  });
+
+  it('rejeita reenvio da mesma chave de acesso com 409 e detalhes do envio anterior', async () => {
+    const anterior = { id: 7, criadoEm: new Date('2026-01-10T12:00:00Z') };
+    const service = criarCupomService(
+      fakeOcr(),
+      fakeRepo({ async buscarPorChaveAcesso() { return anterior; } }),
+      fakeNfce()
+    );
+    await expect(service.importarPorUrlNfce(TENANT, URL_QRCODE)).rejects.toMatchObject({
+      status: 409,
+      details: { duplicado: true, cupomId: 7 },
+    });
+  });
+
+  it('processa normalmente reenvio da mesma chave quando forcar=true', async () => {
+    let salvouChaveAcesso: string | undefined;
+    const repo = fakeRepo({
+      async buscarPorChaveAcesso() { return { id: 7, criadoEm: new Date() }; },
+      async salvar(_t, _dados, _data, chaveAcesso) {
+        salvouChaveAcesso = chaveAcesso;
+        return 42;
+      },
+    });
+    const service = criarCupomService(fakeOcr(), repo, fakeNfce());
+    const resultado = await service.importarPorUrlNfce(TENANT, URL_QRCODE, { forcar: true });
+    expect(resultado.cupomId).toBe(42);
+    expect(salvouChaveAcesso).toBe(CHAVE);
+  });
+
+  it('propaga 422 quando a soma dos itens extraídos não bate com o total', async () => {
+    const inconsistente = { ...CUPOM_VALIDO, valor_total: 999 };
+    const service = criarCupomService(fakeOcr(), fakeRepo(), fakeNfce(inconsistente));
+    await expect(service.importarPorUrlNfce(TENANT, URL_QRCODE)).rejects.toMatchObject({ status: 422 });
   });
 });
 

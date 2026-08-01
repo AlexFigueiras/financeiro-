@@ -3,6 +3,62 @@
 > Entradas no topo (mais recente primeiro), formato ADR resumido. Decisões estruturais maiores
 > ganham um ADR completo numerado em `docs/adr/`. Ver `AGENTS.md` §2.1 para quando registrar.
 
+## [2026-08-01] Importação de cupom via QR Code da NFC-e (scraping server-side)
+
+- **Status:** accepted
+- **Contexto:** o usuário trouxe um prompt pronto para ler o QR Code da NFC-e via **WebView nativo +
+  injeção de JavaScript no DOM** da página da SEFAZ (arquitetura React Native/Flutter). Essa
+  arquitetura não é executável neste repo: o projeto é um **PWA vanilla** (`public/*.js`, IIFE +
+  globais `window.X`) sobre Express/TypeScript, sem WebView nativo. O núcleo da proposta original
+  dependia de furar a *same-origin policy* — algo que só um WebView nativo permite; no navegador,
+  o equivalente seria um `<iframe>`, e é impossível ler/injetar script num frame cross-origin de
+  `nfce.fazenda.sp.gov.br`, que além disso envia headers que bloqueiam o embed. O script enviado
+  também não cumpria a própria especificação (sem timeout de 15s, sem `INVALID_DOM`, sem
+  `MutationObserver` pós-CAPTCHA). **Por que não WebView + DOM injection:** simplesmente não existe
+  WebView neste stack para injetar o script.
+- **Decisão:** manter o objetivo do usuário (ler QR → cupom completo com itens, sem foto de papel),
+  mas mover o scraping para o **servidor**, onde não existe same-origin policy. O PWA lê o QR pela
+  câmera (`BarcodeDetector`) e manda só a URL; o backend busca a página da SEFAZ, extrai o texto e
+  usa o Gemini (`requisitarGeminiTextoJson`, texto — não imagem) para estruturar os dados,
+  reaproveitando **todo** o pipeline de cupons já existente (validação → persistência → evento →
+  reconciliação).
+  - **Guard de SSRF (obrigatório, AGENTS §5 menor privilégio):** como o servidor passa a buscar uma
+    URL vinda do usuário, `domain/nfce-url.ts#interpretarUrlNfce` exige `https:` e valida o host
+    contra uma allowlist (`*.fazenda.<uf>.gov.br` / `*.sefaz.<uf>.gov.br`, com UF validada contra a
+    lista das 27 unidades federativas) — rejeita IPs, domínios arbitrários e qualquer host fora
+    dessa allowlist. `adapters/nfce-sefaz-gemini.ts` revalida o host **depois** de seguir redirects
+    (`response.url`), já que a allowlist tem que valer para toda a cadeia, não só a URL original.
+  - **Dedup por chave de acesso:** nova coluna `cupons_fiscais.chave_acesso` (migration
+    `0005_cupons_chave_acesso.sql`, só `ALTER TABLE` — `check-migrations.js` só exige
+    tenant_id/RLS/policy em `CREATE TABLE`, então passa limpo) com índice único parcial por
+    `(tenant_id, chave_acesso)`. A chave de 44 dígitos é o identificador natural da nota — mais
+    preciso que o hash de arquivo usado no dedup de upload (que não existe neste fluxo, já que não
+    há arquivo, só uma URL).
+  - **Extração da chave:** suporta QR 2.0 (`?p=<chave>|<versao>|...`) e QR 1.0 (`?chNFe=<chave>`),
+    com fallback para o primeiro bloco de 44 dígitos na URL.
+  - **`domain/html-para-texto.ts`:** remove `<script>`/`<style>`/comentários, converte tags em
+    quebras de linha, decodifica entidades básicas, colapsa espaços e corta em ~60.000 caracteres —
+    reduz custo de token e evita mandar lixo de HTML ao Gemini.
+  - **Fallback quando a SEFAZ bloquear** (HTTP não-ok, CAPTCHA/challenge detectado no HTML, ou
+    ausência de qualquer indício de nota, timeout de 15s): erro claro apontando os caminhos que já
+    funcionam (foto do cupom ou lançamento manual) — sem cupom pela metade, sem fila de retentativa
+    (não há worker em produção serverless).
+- **Arquivos impactados:** `infra/db/migrations/0005_cupons_chave_acesso.sql` (novo),
+  `src/domains/cupons/domain/nfce-url.ts` (novo) + teste, `src/domains/cupons/domain/html-para-texto.ts`
+  (novo) + teste, `src/domains/cupons/ports/nfce-port.ts` (novo),
+  `src/domains/cupons/adapters/nfce-sefaz-gemini.ts` (novo),
+  `src/domains/cupons/ports/cupom-repository.ts`, `src/domains/cupons/adapters/cupom-repository-pg.ts`,
+  `src/domains/cupons/services/cupom-service.ts` (+ teste), `src/domains/cupons/index.ts`,
+  `src/domains/cupons/actions/cupons-actions.ts`, `public/nfce-scanner.js` (novo),
+  `public/index.html`, `public/styles.css`, `public/app.js`, `public/sw.js` (bump
+  `CACHE_VERSION` → `financeiro-shell-v6`).
+- **Consequências / Gotchas:** o botão "Escanear NFC-e" exige contexto seguro (`localhost` ou HTTPS
+  em produção) para `getUserMedia`; sem `BarcodeDetector` (iOS/Safari) o modal cai no fallback de
+  colar o link manualmente — decodificar QR de imagem sem essa API exigiria uma lib (jsQR), fora de
+  escopo aqui (exigiria ADR próprio + aprovação de nova dependência, AGENTS §2.4). Toda edição de
+  frame com câmera aberta encerra as tracks (`stream.getTracks().forEach(t => t.stop())`) em todo
+  caminho de saída (sucesso, cancelar, erro, `visibilitychange`) para não vazar o LED da câmera.
+
 ## [2026-07-31] Edição e Definição de Saldo Inicial / Atual de Contas Bancárias
 
 - **Status:** accepted
