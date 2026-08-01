@@ -3,6 +3,29 @@
 > Entradas no topo (mais recente primeiro), formato ADR resumido. Decisões estruturais maiores
 > ganham um ADR completo numerado em `docs/adr/`. Ver `AGENTS.md` §2.1 para quando registrar.
 
+## [2026-08-01] Ampliação do catálogo padrão de categorias (seed)
+
+- **Status:** accepted
+- **Contexto:** o seed de categorias padrão (`src/domains/categorias/adapters/categorias-seed.ts`,
+  aplicado a todo tenant novo via listener do evento `tenant.criado.v1`) cobria só o essencial de
+  supermercado/consumo (alimentação, bebidas, limpeza etc.) + transporte/lazer/moradia. Usuário
+  pediu categorias comuns adicionais para reduzir a necessidade de criar categoria manualmente
+  (UI "+ Categoria" já existe, mas é fricção extra logo no início de uso).
+- **Decisão:** adicionadas 10 categorias ao seed: `educacao`, `doacao`, `saude`,
+  `assinaturas` (Assinaturas e Streaming — separado de `lazer`), `pets`,
+  `impostos` (Impostos e Taxas), `investimentos`, `viagem`, `presentes`, `salario` (Salário/Renda,
+  para entradas). Cores em hex fixo (mesmo padrão já usado para transporte/lazer/moradia, evitando
+  reutilizar as variáveis CSS `--cat-1..8` já ocupadas pelas categorias de consumo). Acrescentadas
+  também `regras_categorizacao` padrão para termos óbvios de cada categoria nova (ex.: `hospital`→
+  `saude`, `ipva`→`impostos`, `passagem`→`viagem`), mesmo padrão das regras existentes.
+  Espelhado o mesmo array em `public/app.js` (fallback usado só em `MODO_DEMO`, sem backend).
+  **Não** alterado `infra/db/migrations/0001_schema_base.sql` — é a migration histórica (schema
+  pré-multi-tenant), imutável; o catálogo vivo para tenants novos é só o seed em código.
+  **Tenants já existentes não recebem as novas categorias automaticamente** (seed roda só no
+  evento de criação do tenant) — para retroagir, chamar `categoriasService.seed(tenantId)`
+  manualmente (é idempotente, `ON CONFLICT DO NOTHING`); não foi criada rota/script para isso por
+  não ter sido pedido.
+
 ## [2026-08-01] Lançamento automático quando o cupom sobe sem transação correspondente
 
 - **Status:** accepted

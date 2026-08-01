@@ -69,6 +69,16 @@
         { chave: 'eletronicos', nome: 'Eletrônicos', cor: '#2a78d6' },
         { chave: 'moradia', nome: 'Moradia', cor: '#eda100' },
         { chave: 'combustivel', nome: 'Combustível de Veículo', cor: '#a855f7' },
+        { chave: 'educacao', nome: 'Educação', cor: '#0ea5e9' },
+        { chave: 'doacao', nome: 'Doação', cor: '#f43f5e' },
+        { chave: 'saude', nome: 'Saúde', cor: '#22c55e' },
+        { chave: 'assinaturas', nome: 'Assinaturas e Streaming', cor: '#7c3aed' },
+        { chave: 'pets', nome: 'Pets', cor: '#d97706' },
+        { chave: 'impostos', nome: 'Impostos e Taxas', cor: '#64748b' },
+        { chave: 'investimentos', nome: 'Investimentos', cor: '#059669' },
+        { chave: 'viagem', nome: 'Viagem', cor: '#06b6d4' },
+        { chave: 'presentes', nome: 'Presentes', cor: '#ec4899' },
+        { chave: 'salario', nome: 'Salário/Renda', cor: '#16a34a' },
         { chave: 'outros', nome: 'Outros', cor: '#898781' }
       ];
       return;
