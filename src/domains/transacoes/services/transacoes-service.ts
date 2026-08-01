@@ -147,6 +147,31 @@ export function criarTransacoesService(
       await repo.excluir(tenantId, transacaoId);
     },
 
+    /**
+     * Lançamento auto-gerado (origem='cupom') para um cupom fiscal sem transação
+     * bancária correspondente — já nasce vinculado e reconciliado, para que o
+     * gasto conte no mês mesmo antes do extrato bancário real chegar. Chamado só
+     * por `cupons-actions.ts` como passo best-effort (nunca deve derrubar o
+     * upload do cupom): o chamador é responsável por capturar falhas.
+     * Sem lançamento quando o cupom ainda não tem valor (ex.: manual sem itens).
+     */
+    async criarAutoDeCupom(
+      tenantId: string,
+      dados: { contaId: number; cupomId: number; estabelecimento: string; dataEmissao: string; valorTotal: number }
+    ): Promise<TransacaoListada | null> {
+      if (!(dados.valorTotal > 0)) return null;
+      const transacao: DadosTransacao = {
+        contaId: dados.contaId,
+        dataTransacao: dados.dataEmissao,
+        descricaoBruta: dados.estabelecimento,
+        valor: -Math.round(dados.valorTotal * 100) / 100,
+        categoria: 'outros',
+        cupomId: dados.cupomId,
+        statusReconciliado: true,
+      };
+      return repo.criar(tenantId, transacao);
+    },
+
     async recategorizarTodas(tenantId: string): Promise<number> {
       await categorias.seed(tenantId);
       return repo.recategorizarTodas(tenantId);

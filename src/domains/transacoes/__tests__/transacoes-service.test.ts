@@ -186,6 +186,51 @@ describe('transacoesService.atualizar', () => {
   });
 });
 
+describe('transacoesService.criarAutoDeCupom', () => {
+  it('cria lançamento negativo já vinculado e reconciliado', async () => {
+    let dadosCapturados: unknown;
+    const repo = fakeRepo({
+      async criar(_tenantId, dados) {
+        dadosCapturados = dados;
+        return TRANSACAO_FAKE;
+      },
+    });
+    const service = criarTransacoesService(repo, fakeCategorias(true), fakeContas(true));
+    const resultado = await service.criarAutoDeCupom('t1', {
+      contaId: 3,
+      cupomId: 42,
+      estabelecimento: 'Mercado X',
+      dataEmissao: '2026-01-10T12:00:00.000Z',
+      valorTotal: 51,
+    });
+    expect(dadosCapturados).toEqual({
+      contaId: 3,
+      dataTransacao: '2026-01-10T12:00:00.000Z',
+      descricaoBruta: 'Mercado X',
+      valor: -51,
+      categoria: 'outros',
+      cupomId: 42,
+      statusReconciliado: true,
+    });
+    expect(resultado).toBe(TRANSACAO_FAKE);
+  });
+
+  it('não cria lançamento quando o cupom ainda não tem valor (ex.: manual sem itens)', async () => {
+    let chamouRepo = false;
+    const repo = fakeRepo({ async criar() { chamouRepo = true; return TRANSACAO_FAKE; } });
+    const service = criarTransacoesService(repo, fakeCategorias(true), fakeContas(true));
+    const resultado = await service.criarAutoDeCupom('t1', {
+      contaId: 3,
+      cupomId: 42,
+      estabelecimento: 'Mercado X',
+      dataEmissao: '2026-01-10T12:00:00.000Z',
+      valorTotal: 0,
+    });
+    expect(resultado).toBeNull();
+    expect(chamouRepo).toBe(false);
+  });
+});
+
 describe('transacoesService.excluir', () => {
   it('delega ao repositório', async () => {
     let chamou = false;

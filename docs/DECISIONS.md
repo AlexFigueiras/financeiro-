@@ -3,6 +3,71 @@
 > Entradas no topo (mais recente primeiro), formato ADR resumido. Decisões estruturais maiores
 > ganham um ADR completo numerado em `docs/adr/`. Ver `AGENTS.md` §2.1 para quando registrar.
 
+## [2026-08-01] Lançamento automático quando o cupom sobe sem transação correspondente
+
+- **Status:** accepted
+- **Contexto:** ao subir um cupom fiscal (manual, upload de foto/PDF via OCR ou QR Code da NFC-e),
+  o backend tentava casar com uma transação bancária já existente
+  (`reconciliacaoService.reconciliarSeguro` → `fn_reconciliar`); sem match, o cupom ficava
+  pendente, sem nenhum lançamento vinculado — e como o dashboard soma direto de
+  `transacoes_banco.valor`, o gasto só entrava nos KPIs do mês quando o usuário importasse o
+  extrato bancário depois (fluxo real do usuário: cupom no dia da compra, extrato do mês inteiro
+  só depois). O usuário pediu que o lançamento seja criado e já vinculado no momento do upload do
+  cupom, independente do método de envio.
+- **Decisão:**
+  - **Lançamento placeholder:** `transacoesService.criarAutoDeCupom` (domínio `transacoes`) cria
+    um lançamento com `valor = -valor_total do cupom`, `data_transacao = data_emissao`,
+    `descricao_bruta = estabelecimento`, `categoria = 'outros'` (dashboard usa a categoria de
+    cada item do cupom, não a da transação, quando há vínculo — `gastosPorCategoria` em
+    `dashboard-repository-pg.ts`), já com `cupom_id`/`status_reconciliado=true` e
+    `origem='cupom'` (novo valor no CHECK constraint de `transacoes_banco.origem`, antes só
+    `'ofx'|'manual'` — migration `0006_reconciliacao_lancamento_automatico.sql`). Sem lançamento
+    quando `valor_total <= 0` (cupom manual criado sem itens ainda).
+  - **Orquestração em `cupons-actions.ts`:** as 3 rotas de criação de cupom (`POST /`, `/upload`,
+    `/nfce`) chamam um helper local `garantirLancamento` — roda `reconciliarSeguro` primeiro; se
+    não achar match, resolve a conta via `contasService.resolverContaId` e chama
+    `criarAutoDeCupom`. Best-effort: qualquer falha (ex.: tenant sem nenhuma conta cadastrada) é
+    logada e nunca derruba a criação do cupom, mesmo espírito de `reconciliarSeguro`.
+  - **Evita contar o gasto duas vezes:** o risco central é o extrato bancário real chegar depois
+    (fluxo comum do usuário) e duplicar o gasto (placeholder + transação real, cada um contando
+    separado no dashboard). `fn_reconciliar` foi reescrita para tratar um cupom cuja única
+    transação vinculada é um placeholder (`origem='cupom'`) como ainda elegível para match; ao
+    casar com uma transação real, apaga o placeholder (a trigger `trg_atualiza_saldo` reverte o
+    valor dele) e vincula a real no lugar — implementado como um único statement SQL com CTEs de
+    DML encadeadas (a remoção do placeholder e o UPDATE final mexem em PKs disjuntas, então a
+    ordem de execução entre elas não importa). O mesmo cuidado foi replicado no vínculo manual
+    (`PATCH /api/transacoes/:id` com `cupom_id`, usado no fluxo "+ Item"): `atualizar` em
+    `transacoes-repository-pg.ts` agora apaga qualquer placeholder remanescente do mesmo
+    `cupom_id` ao setar um vínculo manual.
+  - **Conta do lançamento (decisão do usuário):** como nenhum formulário de cupom pedia conta,
+    perguntei ao usuário como resolver isso; a escolha foi sempre mostrar um modal dedicado
+    ("De qual conta é este cupom?") antes de enviar, em TODOS os pontos de entrada — não só um
+    fallback silencioso — pré-selecionado com a conta padrão do tenant. Componente novo
+    `public/conta-cupom-modal.js` (`window.ContaCupomModal.abrir(chamarApi)`, promise-based),
+    reaproveitado pelos 3 fluxos: `cupons-ui.js` (criação manual, só quando não é vínculo direto
+    a uma transação existente), `app.js` (`configurarDropzone` ganhou o parâmetro opcional
+    `obterCamposExtras`, usado só no dropzone de cupom — o de extrato OFX não muda) e
+    `nfce-scanner.js` (antes do POST, tanto no fluxo de câmera quanto no de colar link). O
+    `conta_id` só é de fato usado se `garantirLancamento` precisar criar o placeholder — se a
+    reconciliação já achou uma transação existente, é ignorado.
+- **Arquivos impactados:** `infra/db/migrations/0006_reconciliacao_lancamento_automatico.sql`
+  (novo), `src/domains/transacoes/{types,ports/transacoes-repository,adapters/transacoes-repository-pg,services/transacoes-service}.ts`
+  e teste, `src/domains/cupons/actions/cupons-actions.ts`, `public/conta-cupom-modal.js` (novo),
+  `public/dropzone.js` (novo — `configurarDropzone` extraído de `app.js`, que passou de 300 linhas
+  com o parâmetro `obterCamposExtras`; mesmo padrão de extração já usado para `transacoes-tabela.js`,
+  ver decisão de 2026-07-05), `public/index.html`, `public/cupons-ui.js`, `public/app.js`,
+  `public/nfce-scanner.js`, `public/sw.js` (bump `CACHE_VERSION` → `financeiro-shell-v7`),
+  `domains/cupons/CONTEXT.md`, `domains/reconciliacao/CONTEXT.md`, `domains/transacoes/CONTEXT.md`.
+- **Consequências / Gotchas:** um cupom "reconciliado" no mês pode agora ser um placeholder ainda
+  sem confirmação bancária — não há indicador visual distinto na tabela hoje (usa o mesmo badge
+  "🧾 Detalhado" de um cupom casado com uma transação real); se isso confundir o usuário, um badge
+  específico por `origem` é um follow-up de baixo custo. Vínculo manual de split-payment (mais de
+  uma transação para o mesmo cupom, ver decisão de 2026-07-15) num cupom que já tenha um
+  placeholder só é tratado no primeiro vínculo manual (que apaga o placeholder) — vínculos
+  manuais adicionais depois disso já operam sem placeholder, comportamento inalterado. `conta_id`
+  segue opcional nas 3 rotas (fallback via `contasService.resolverContaId` se vier ausente) como
+  defesa em profundidade — o frontend sempre envia, mas o backend não depende disso.
+
 ## [2026-08-01] Importação de cupom via QR Code da NFC-e (scraping server-side)
 
 - **Status:** accepted

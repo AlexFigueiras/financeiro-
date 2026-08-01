@@ -1,6 +1,6 @@
 // Service worker: caches only the static app shell. All /api/* calls always
 // go to the network — financial data must never be served stale from cache.
-const CACHE_VERSION = "financeiro-shell-v6";
+const CACHE_VERSION = "financeiro-shell-v7";
 const SHELL_ASSETS = [
   "/",
   "/index.html",
@@ -8,7 +8,9 @@ const SHELL_ASSETS = [
   "/app.js",
   "/categorias-ui.js",
   "/cupons-ui.js",
+  "/conta-cupom-modal.js",
   "/nfce-scanner.js",
+  "/dropzone.js",
   "/demo-data.js",
   "/vendor/chart.umd.min.js",
   "/manifest.webmanifest",

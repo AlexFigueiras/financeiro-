@@ -17,6 +17,21 @@ OCR inteligente de cupons fiscais (Gemini) com validação de consistência e pe
 ## Eventos
 Publica `cupom.processado.v1` após persistir um cupom.
 
+## Lançamento automático quando não há transação correspondente
+As 3 rotas de criação (`POST /`, `/upload`, `/nfce`, em `actions/cupons-actions.ts`) chamam
+`reconciliacaoService.reconciliarSeguro` após criar o cupom; se nenhuma transação bancária já
+existente casar, o helper local `garantirLancamento` cria um lançamento auto-gerado e já
+vinculado via `transacoesService.criarAutoDeCupom` (domínio `transacoes`), usando `contasService.resolverContaId`
+para resolver a conta. Isso garante que o gasto entre no dashboard do mês mesmo sem o extrato
+bancário real — ver `domains/reconciliacao/CONTEXT.md` para como esse placeholder é substituído
+pela transação real quando ela chegar depois. Best-effort: uma falha nesse passo (ex.: tenant sem
+nenhuma conta cadastrada) é logada e nunca derruba a criação do cupom.
+
+As 3 rotas aceitam `conta_id` no corpo/form (o frontend sempre pergunta via o modal
+`ContaCupomModal`, pré-selecionando a conta padrão do tenant) — só é de fato usado se o passo
+acima precisar criar um lançamento; se a reconciliação já achou uma transação existente, o
+`conta_id` enviado é ignorado (a transação existente já tem sua própria conta).
+
 ## Regras locais
 `domain/validacao-cupom.ts` é puro: exige que a soma dos itens bata com `valor_total` (tolerância R$ 0,05) — reforça no código a mesma regra pedida no prompt da IA, para não confiar só no modelo.
 

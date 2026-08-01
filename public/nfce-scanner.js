@@ -43,12 +43,21 @@
     if (modal) modal.hidden = true;
   }
 
-  async function enviarUrl(url, forcar = false) {
+  async function enviarUrl(url, forcar = false, contaId = undefined) {
+    // Pergunta a conta uma única vez por envio (não se repete no reenvio
+    // automático de "forcar", que já chega aqui com contaId definido).
+    if (contaId === undefined) {
+      contaId = window.ContaCupomModal ? await window.ContaCupomModal.abrir(chamarApiRef) : null;
+      if (!contaId) {
+        fecharModal();
+        return;
+      }
+    }
     try {
       await chamarApiRef('/api/cupons/nfce', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url, forcar }),
+        body: JSON.stringify({ url, forcar, conta_id: contaId }),
       });
       fecharModal();
       if (typeof aoSalvarRef === 'function') await aoSalvarRef();
@@ -58,7 +67,7 @@
       if (erro.status === 409 && erro.detalhes && erro.detalhes.duplicado) {
         const processarMesmoAssim = confirm(`${erro.message}\n\nDeseja processar mesmo assim?`);
         if (processarMesmoAssim) {
-          await enviarUrl(url, true);
+          await enviarUrl(url, true, contaId);
           return;
         }
         fecharModal();

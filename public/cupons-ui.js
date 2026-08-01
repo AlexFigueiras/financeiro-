@@ -206,12 +206,21 @@
           }
         });
 
+        // Só pergunta a conta quando é de fato um cupom novo sem transação já
+        // conhecida — o lançamento auto-gerado (se precisar) usa essa conta.
+        let conta_id;
+        if (!transacao_id && window.ContaCupomModal) {
+          conta_id = await window.ContaCupomModal.abrir(chamarApi);
+          if (!conta_id) return; // cancelado pelo usuário
+        }
+
         try {
           await chamarApi('/api/cupons', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               transacao_id: transacao_id || undefined,
+              conta_id,
               estabelecimento,
               data_emissao,
               itens,

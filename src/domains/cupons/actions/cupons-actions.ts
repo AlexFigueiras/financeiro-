@@ -6,6 +6,44 @@ import { cupomService } from '../index';
 import { reconciliacaoService } from '../../reconciliacao';
 import { categoriasService } from '../../categorias';
 import { transacoesService } from '../../transacoes';
+import { contasService } from '../../contas';
+import { loggerDe } from '../../../shared/observability/logger';
+import type { ResultadoCupom } from '../types';
+
+const log = loggerDe('cupons');
+
+/**
+ * Tenta casar o cupom recém-criado com uma transação bancária já existente;
+ * se não encontrar nenhuma, cria um lançamento auto-gerado já vinculado
+ * (origem='cupom') para que o gasto conte no mês mesmo sem o extrato real.
+ * Best-effort: nunca lança — uma falha aqui não pode derrubar o upload do
+ * cupom, mesmo espírito de `reconciliacaoService.reconciliarSeguro`.
+ */
+async function garantirLancamento(
+  tenantId: string,
+  resultado: ResultadoCupom,
+  contexto: string,
+  contaIdBruto: unknown
+): Promise<{ vinculado: boolean; lancamentoCriado: boolean }> {
+  const matches = await reconciliacaoService.reconciliarSeguro(tenantId, contexto);
+  if (matches.some((m) => m.cupomFiscalId === resultado.cupomId)) {
+    return { vinculado: true, lancamentoCriado: false };
+  }
+  try {
+    const contaId = await contasService.resolverContaId(tenantId, contaIdBruto);
+    const criado = await transacoesService.criarAutoDeCupom(tenantId, {
+      contaId,
+      cupomId: resultado.cupomId,
+      estabelecimento: resultado.estabelecimento,
+      dataEmissao: resultado.dataEmissao,
+      valorTotal: resultado.valorTotal,
+    });
+    return { vinculado: criado !== null, lancamentoCriado: criado !== null };
+  } catch (err) {
+    log.error({ err: (err as Error).message, contexto }, 'falha ao criar lançamento automático do cupom');
+    return { vinculado: false, lancamentoCriado: false };
+  }
+}
 
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -102,15 +140,22 @@ cuponsRouter.post(
       return;
     }
 
-    const matches = await reconciliacaoService.reconciliarSeguro(tenantId, 'manual cupom');
-    const vinculado = matches.some((m) => m.cupomFiscalId === resultado.cupomId);
+    const { vinculado, lancamentoCriado } = await garantirLancamento(
+      tenantId,
+      resultado,
+      'manual cupom',
+      req.body?.conta_id
+    );
 
     res.status(201).json({
-      mensagem: vinculado
-        ? 'Cupom manual criado e reconciliado automaticamente com uma transação bancária.'
-        : 'Cupom manual criado com sucesso.',
+      mensagem: lancamentoCriado
+        ? 'Cupom manual criado e lançamento gerado automaticamente para este mês.'
+        : vinculado
+          ? 'Cupom manual criado e reconciliado automaticamente com uma transação bancária.'
+          : 'Cupom manual criado com sucesso.',
       ...resultado,
       reconciliadoAutomaticamente: vinculado,
+      lancamentoCriadoAutomaticamente: lancamentoCriado,
     });
   })
 );
@@ -131,15 +176,22 @@ cuponsRouter.post(
     const forcar = req.body.forcar === 'true' || req.body.forcar === true;
     const arquivosOcr = files.map((f) => ({ buffer: f.buffer, mimeType: f.mimetype, nome: f.originalname }));
     const resultado = await cupomService.processar(tenantId, arquivosOcr, { forcar });
-    const matches = await reconciliacaoService.reconciliarSeguro(tenantId, 'upload de cupom');
-    const vinculado = matches.some((m) => m.cupomFiscalId === resultado.cupomId);
+    const { vinculado, lancamentoCriado } = await garantirLancamento(
+      tenantId,
+      resultado,
+      'upload de cupom',
+      req.body.conta_id
+    );
 
     res.status(201).json({
-      mensagem: vinculado
-        ? 'Cupom processado e reconciliado automaticamente com uma transação bancária.'
-        : 'Cupom processado. Nenhuma transação correspondente encontrada ainda.',
+      mensagem: lancamentoCriado
+        ? 'Cupom processado e lançamento gerado automaticamente para este mês.'
+        : vinculado
+          ? 'Cupom processado e reconciliado automaticamente com uma transação bancária.'
+          : 'Cupom processado. Nenhuma transação correspondente encontrada ainda.',
       ...resultado,
       reconciliadoAutomaticamente: vinculado,
+      lancamentoCriadoAutomaticamente: lancamentoCriado,
     });
   })
 );
@@ -157,15 +209,22 @@ cuponsRouter.post(
     const url = typeof req.body?.url === 'string' ? req.body.url : '';
     const forcar = req.body?.forcar === true || req.body?.forcar === 'true';
     const resultado = await cupomService.importarPorUrlNfce(tenantId, url, { forcar });
-    const matches = await reconciliacaoService.reconciliarSeguro(tenantId, 'nfce qrcode');
-    const vinculado = matches.some((m) => m.cupomFiscalId === resultado.cupomId);
+    const { vinculado, lancamentoCriado } = await garantirLancamento(
+      tenantId,
+      resultado,
+      'nfce qrcode',
+      req.body?.conta_id
+    );
 
     res.status(201).json({
-      mensagem: vinculado
-        ? 'Cupom da NFC-e importado e reconciliado automaticamente com uma transação bancária.'
-        : 'Cupom da NFC-e importado com sucesso.',
+      mensagem: lancamentoCriado
+        ? 'Cupom da NFC-e importado e lançamento gerado automaticamente para este mês.'
+        : vinculado
+          ? 'Cupom da NFC-e importado e reconciliado automaticamente com uma transação bancária.'
+          : 'Cupom da NFC-e importado com sucesso.',
       ...resultado,
       reconciliadoAutomaticamente: vinculado,
+      lancamentoCriadoAutomaticamente: lancamentoCriado,
     });
   })
 );

@@ -128,10 +128,14 @@ export const transacoesRepositoryPg: TransacoesRepository = {
 
   async criar(tenantId, dados: DadosTransacao): Promise<TransacaoListada> {
     return withTenantTransaction(tenantId, async (client) => {
+      // Lançamento auto-gerado a partir de um cupom sem transação correspondente
+      // (ver transacoesService.criarAutoDeCupom) já nasce com cupom_id/status_reconciliado
+      // definidos e origem='cupom' — distingue de um lançamento digitado pelo usuário.
+      const origem = dados.cupomId ? 'cupom' : 'manual';
       const { rows } = await client.query<{ id: number }>(
         `INSERT INTO transacoes_banco
-           (tenant_id, conta_id, data_transacao, descricao_bruta, valor, categoria, origem, hash_ofx)
-         VALUES ($1, $2, $3, $4, $5, $6, 'manual', $7)
+           (tenant_id, conta_id, data_transacao, descricao_bruta, valor, categoria, origem, hash_ofx, cupom_id, status_reconciliado)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
          RETURNING id`,
         [
           tenantId,
@@ -140,7 +144,10 @@ export const transacoesRepositoryPg: TransacoesRepository = {
           dados.descricaoBruta,
           dados.valor,
           dados.categoria,
-          `manual:${randomUUID()}`,
+          origem,
+          `${origem}:${randomUUID()}`,
+          dados.cupomId ?? null,
+          dados.statusReconciliado ?? false,
         ]
       );
       return buscarPorId(client, tenantId, rows[0].id);
@@ -190,6 +197,18 @@ export const transacoesRepositoryPg: TransacoesRepository = {
           params
         );
       }
+
+      // Vínculo manual a um cupom que já tinha um lançamento placeholder
+      // (origem='cupom', criado quando o cupom subiu sem transação correspondente):
+      // remove o placeholder para não contar o mesmo gasto duas vezes.
+      if (dados.cupomId) {
+        await client.query(
+          `DELETE FROM transacoes_banco
+            WHERE cupom_id = $1 AND tenant_id = $2 AND origem = 'cupom' AND id <> $3`,
+          [dados.cupomId, tenantId, transacaoId]
+        );
+      }
+
       return buscarPorId(client, tenantId, transacaoId);
     });
   },

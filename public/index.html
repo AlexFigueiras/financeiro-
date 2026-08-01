@@ -196,6 +196,20 @@
     </form>
   </div>
 
+  <div id="modal-conta-cupom" class="modal-overlay" hidden>
+    <div class="painel modal-card" aria-label="Escolher conta do cupom">
+      <h2>De qual conta é este cupom?</h2>
+      <p class="painel-sub">Usada apenas se ainda não houver um lançamento bancário correspondente.</p>
+      <label for="conta-cupom-select">Conta / cartão</label>
+      <select id="conta-cupom-select"></select>
+      <div id="conta-cupom-erro" class="feedback erro" role="alert" hidden></div>
+      <div class="modal-acoes">
+        <button type="button" id="btn-confirmar-conta-cupom">Confirmar</button>
+        <button type="button" id="btn-cancelar-conta-cupom">Cancelar</button>
+      </div>
+    </div>
+  </div>
+
   <div id="app-shell" hidden>
   <header class="topbar">
     <div class="topbar-inner">
@@ -328,6 +342,7 @@
   <script src="login-ui.js"></script>
   <script src="contas-ui.js"></script>
   <script src="categorias-ui.js"></script>
+  <script src="conta-cupom-modal.js"></script>
   <script src="cupons-ui.js"></script>
   <script src="nfce-scanner.js"></script>
   <script src="transacao-form.js"></script>
@@ -335,6 +350,7 @@
   <script src="transacoes-tabela.js"></script>
   <script src="charts.js"></script>
   <script src="categoria-select.js"></script>
+  <script src="dropzone.js"></script>
   <script src="app.js"></script>
   <script>
     if ("serviceWorker" in navigator) {
